@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CameraDevice.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\ConnectionInfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\PropertyValueTable.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\RemoteCli.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\Text.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\MessageDefine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\OpenCVWrapper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CrDebugString.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CameraDevice.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\ConnectionInfo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\PropertyValueTable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\Text.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\MessageDefine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\OpenCVWrapper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\CameraRemote_SDK.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\CrCommandData.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\CrDefines.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\CrDeviceProperty.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\CrError.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\CrImageDataBlock.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\CrTypes.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\ICrCameraObjectInfo.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\IDeviceCallback.h">
+      <Filter>CRSDK</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CRSDK">
+      <UniqueIdentifier>{3C77F69F-A47B-3F53-BE0B-3B4D86E1137C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{D38E535F-C59C-3ACF-9447-BAEEB24340C5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{516281D0-3471-3078-B3D0-C33CC8BA69AD}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

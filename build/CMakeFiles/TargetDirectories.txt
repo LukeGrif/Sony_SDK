@@ -1,0 +1,5 @@
+C:/Users/Lenovo/OneDrive/Desktop/CrSDK_v2.00.00_20250623a_Win64/build/CMakeFiles/RemoteCli.dir
+C:/Users/Lenovo/OneDrive/Desktop/CrSDK_v2.00.00_20250623a_Win64/build/CMakeFiles/DetectCamera.dir
+C:/Users/Lenovo/OneDrive/Desktop/CrSDK_v2.00.00_20250623a_Win64/build/CMakeFiles/INSTALL.dir
+C:/Users/Lenovo/OneDrive/Desktop/CrSDK_v2.00.00_20250623a_Win64/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/Lenovo/OneDrive/Desktop/CrSDK_v2.00.00_20250623a_Win64/build/CMakeFiles/ZERO_CHECK.dir
