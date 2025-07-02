@@ -24,6 +24,8 @@ add_executable(${remotecli}
     ${cli_hdrs}
     ${cli_srcs}
     ${crsdk_hdrs}
+    app/ViewImage.cpp
+    
 )
 
 if(APPLE)
@@ -59,6 +61,8 @@ target_include_directories(${remotecli}
     PRIVATE
         ${crsdk_hdr_dir} # defined in enum script
         ${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/app
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/include/opencv4
 )
 
 ### Configure external library directories ###
@@ -172,51 +176,3 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Darwin/Release/macos/bin/libopencv_imgproc.408.dylib" $<TARGET_FILE_DIR:${remotecli}>
     )
 endif(APPLE)
-
-add_executable(DetectCamera app/DetectCamera.cpp)
-
-# Add CRSDK headers
-target_include_directories(DetectCamera PRIVATE ${crsdk_hdr_dir})
-
-# Add OpenCV headers
-target_include_directories(DetectCamera PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/include)
-
-# Link CRSDK library
-find_library(camera_remote_DetectCamera Cr_Core HINTS ${cr_ldir})
-target_link_libraries(DetectCamera PRIVATE ${camera_remote_DetectCamera})
-
-# Link OpenCV libraries (Release and Debug)
-if(MSVC)
-    target_link_libraries(DetectCamera PRIVATE 
-        $<$<CONFIG:Release>:${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Release/lib/opencv_core480.lib>
-        $<$<CONFIG:Release>:${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Release/lib/opencv_highgui480.lib>
-        $<$<CONFIG:Release>:${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Release/lib/opencv_imgcodecs480.lib>
-        $<$<CONFIG:Release>:${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Release/lib/opencv_imgproc480.lib>
-        $<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Debug/lib/opencv_core480d.lib>
-        $<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Debug/lib/opencv_highgui480d.lib>
-        $<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Debug/lib/opencv_imgcodecs480d.lib>
-        $<$<CONFIG:Debug>:${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Debug/lib/opencv_imgproc480d.lib>
-    )
-endif(MSVC)
-
-# Copy CRSDK and OpenCV DLLs for runtime
-if(WIN32)
-    add_custom_command(TARGET DetectCamera PRE_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${cr_ldir} $<TARGET_FILE_DIR:DetectCamera>
-        COMMAND $<$<CONFIG:Release>:${CMAKE_COMMAND}> $<$<CONFIG:Release>:-E> $<$<CONFIG:Release>:copy_if_different> $<$<CONFIG:Release>:"${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Release/bin/opencv_core480.dll"> $<$<CONFIG:Release>:$<TARGET_FILE_DIR:DetectCamera>>
-        COMMAND $<$<CONFIG:Release>:${CMAKE_COMMAND}> $<$<CONFIG:Release>:-E> $<$<CONFIG:Release>:copy_if_different> $<$<CONFIG:Release>:"${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Release/bin/opencv_highgui480.dll"> $<$<CONFIG:Release>:$<TARGET_FILE_DIR:DetectCamera>>
-        COMMAND $<$<CONFIG:Release>:${CMAKE_COMMAND}> $<$<CONFIG:Release>:-E> $<$<CONFIG:Release>:copy_if_different> $<$<CONFIG:Release>:"${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Release/bin/opencv_imgcodecs480.dll"> $<$<CONFIG:Release>:$<TARGET_FILE_DIR:DetectCamera>>
-        COMMAND $<$<CONFIG:Release>:${CMAKE_COMMAND}> $<$<CONFIG:Release>:-E> $<$<CONFIG:Release>:copy_if_different> $<$<CONFIG:Release>:"${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Release/bin/opencv_imgproc480.dll"> $<$<CONFIG:Release>:$<TARGET_FILE_DIR:DetectCamera>>
-        COMMAND $<$<CONFIG:Debug>:${CMAKE_COMMAND}> $<$<CONFIG:Debug>:-E> $<$<CONFIG:Debug>:copy_if_different> $<$<CONFIG:Debug>:"${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Debug/bin/opencv_core480d.dll"> $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:DetectCamera>>
-        COMMAND $<$<CONFIG:Debug>:${CMAKE_COMMAND}> $<$<CONFIG:Debug>:-E> $<$<CONFIG:Debug>:copy_if_different> $<$<CONFIG:Debug>:"${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Debug/bin/opencv_highgui480d.dll"> $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:DetectCamera>>
-        COMMAND $<$<CONFIG:Debug>:${CMAKE_COMMAND}> $<$<CONFIG:Debug>:-E> $<$<CONFIG:Debug>:copy_if_different> $<$<CONFIG:Debug>:"${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Debug/bin/opencv_imgcodecs480d.dll"> $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:DetectCamera>>
-        COMMAND $<$<CONFIG:Debug>:${CMAKE_COMMAND}> $<$<CONFIG:Debug>:-E> $<$<CONFIG:Debug>:copy_if_different> $<$<CONFIG:Debug>:"${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Windows/x86_64/Debug/bin/opencv_imgproc480d.dll"> $<$<CONFIG:Debug>:$<TARGET_FILE_DIR:DetectCamera>>
-    )
-endif(WIN32)
-
-install(TARGETS DetectCamera DESTINATION .)
-
-## Install application
-## '.' means, install to the root directory of CMAKE_INSTALL_PREFIX
-install(TARGETS ${remotecli} DESTINATION .)
-install(DIRECTORY ${cr_ldir}/ DESTINATION .)

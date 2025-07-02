@@ -86,7 +86,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <ControlFlowGuard>Guard</ControlFlowGuard>
@@ -111,10 +111,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;UNICODE;_UNICODE;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -161,7 +161,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ControlFlowGuard>Guard</ControlFlowGuard>
@@ -187,10 +187,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;UNICODE;_UNICODE;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -237,7 +237,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ControlFlowGuard>Guard</ControlFlowGuard>
@@ -263,10 +263,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;UNICODE;_UNICODE;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -305,7 +305,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <ControlFlowGuard>Guard</ControlFlowGuard>
@@ -330,10 +330,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;UNICODE;_UNICODE;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app;C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\external\opencv\include\opencv4;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -451,6 +451,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\CrTypes.h" />
     <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\ICrCameraObjectInfo.h" />
     <ClInclude Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\CRSDK\IDeviceCallback.h" />
+    <ClCompile Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\app\ViewImage.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

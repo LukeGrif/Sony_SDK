@@ -174,10 +174,6 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
-    <ProjectReference Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\build\DetectCamera.vcxproj">
-      <Project>{E9D215CB-52EE-306F-B6BD-AEFD6D83489B}</Project>
-      <Name>DetectCamera</Name>
-    </ProjectReference>
     <ProjectReference Include="C:\Users\Lenovo\OneDrive\Desktop\CrSDK_v2.00.00_20250623a_Win64\build\RemoteCli.vcxproj">
       <Project>{C9950A6E-CFFC-3A7E-821C-1AB51FB9F20F}</Project>
       <Name>RemoteCli</Name>

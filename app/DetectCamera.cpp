@@ -2,11 +2,10 @@
 #include "CRSDK/ICrCameraObjectInfo.h"
 #include "CRSDK/IDeviceCallback.h"
 #include "CRSDK/CrImageDataBlock.h"
+#include "CameraDevice.h"
 #include <iostream>
 
 #include <string>
-#include "CameraDevice.h"
-#include <opencv2/opencv.hpp>
 #include <chrono>
 #include <thread>
 #include <iomanip>
@@ -14,6 +13,7 @@
 #include <iostream>
 
 using namespace SCRSDK;
+using cli::CameraDevice;
 
 int main()
 {
@@ -80,8 +80,8 @@ int main()
     }
     std::cout << "Connected to camera " << camIndex << "." << std::endl;
 
-    // Start Live View
-    
+    // CameraDevice* camera = new CameraDevice(camIndex, camInfo);
+    // camera->get_live_view();
 
     // Always disconnect and release resources
     Disconnect(deviceHandle);
