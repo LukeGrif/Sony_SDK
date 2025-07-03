@@ -1,4 +1,5 @@
-﻿#include <cstdlib>
+﻿
+#include <cstdlib>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
@@ -58,6 +59,7 @@ int main()
     camera->connect(SDK::CrSdkControlMode_Remote, SDK::CrReconnecting_ON);
 
     std::atomic<bool> exitFlag{false};
+    std::atomic<bool> autoCaptureFlag{false};
 
     while (!exitFlag)
     {
@@ -67,7 +69,11 @@ int main()
         while (!exitFlag)
         {
             camera->get_live_view();
-            viewer.displayImage("C:\\Users\\Lenovo\\OneDrive\\Desktop\\CrSDK_v2.00.00_20250623a_Win64\\build\\Release\\LiveView000000.jpg", camera, exitFlag);
+            viewer.displayImage(
+                "C:\\Users\\Lenovo\\OneDrive\\Desktop\\CrSDK_v2.00.00_20250623a_Win64\\build\\Release\\LiveView000000.jpg",
+                camera,
+                exitFlag,
+                autoCaptureFlag);
         }
     }
 
