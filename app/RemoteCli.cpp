@@ -31,6 +31,8 @@ int main()
         return EXIT_FAILURE;
     }
 
+    cli::tout << "Connecting to camera...\n";
+
     SDK::ICrEnumCameraObjectInfo *camera_list = nullptr;
     if (CR_FAILED(SDK::EnumCameraObjects(&camera_list)) || camera_list == nullptr)
     {

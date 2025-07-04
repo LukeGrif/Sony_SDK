@@ -1,90 +1,91 @@
-# Build from pre-built CRSDK binary files
+# Sony SDK Camera GUI using OpenCV
 
-This package should have the following structure.
+A lightweight GUI built using OpenCV for interacting with Sony cameras via the Sony Camera Remote SDK. This GUI allows you to preview the live view, change focus modes via a dropdown, and capture images manually or automatically.
 
-## Directory structure
-```
-.
-├── app
-│   ├── <App source files>
-│   └── CRSDK
-│       └── <Public headers>
-├── cmake
-│   ├── enum_cli_hdr.cmake
-│   ├── enum_cli_src.cmake
-│   └── enum_crsdk_hdr.cmake
-├── CMakeLists.txt
-├── external
-│   ├── crsdk
-│   │  ├── CrAdapter
-│   │  │   ├── Cr_PTP_IP binary
-│   │  │   ├── Cr_PTP_USB binary
-│   │  │   ├── libssh2 binary
-│   │  │   └── libusb-1.0 binary
-│   │  ├── Cr_Core binary
-│   │  ├── monitor_protocol binary
-│   │  └── monitor_protocol_pf binary
-│   └── opencv
-├── Driver
-│       Windows only. Device driver.
-└── README.md
-```
+---
 
-## Install required libraries and tools
-Supporting OS version: See Camera_Remote_SDK_API_Reference_xxx.pdf.
+## 📸 Features
 
-### Linux
-The package versions included in 20.04 LTS will work.
-```
-sudo apt install autoconf libtool libudev-dev gcc g++ make cmake unzip libxml2-dev
-```
+- Live View streaming from a connected Sony camera
+- Dropdown menu to select focus modes (`AF_S`, `AF_A`, `AF_C`, `DMF`, `MF`)
+- Manual Focus and Capture buttons
+- Auto Capture toggle
+- Exit button to safely close the application
 
-### Windows 10
-Install the following:
-* Visual Studio 2019 or later
-* Visual Studio Toolset v142
-* Windows SDK 10.0.17763.0
-* libusbK 3.0 driver
-* CMake
+---
 
-### Mac
-* macOS 12.1 or later (Monterey)/ 13.0 or later (Ventura)/ 14.0 or later (Sonoma)
-* Xcode 14.1/ 15.0
-* Packages:
-```
-brew install cmake autoconf automake libtool
-```
+## 🖼️ GUI Preview
 
-## Generate build files and build using CMake
-__Note1: The generated build files cannot be moved from the directory
-they are generated in due to CMake using absolute paths.
-Generate the build files in the directory you wish to build from.
-Check the CMake documentation to see how to specify a different build directory__
+### Control Centre UI
 
-__Note2: The build result can be moved without issue__
-```
-linux:
-    mkdir build
-    cd build
-    cmake -DCMAKE_BUILD_TYPE=Release ..
-    cmake --build .
-```
+_Example screenshot of the Control Centre window with dropdown expanded._
 
+![alt text](image.png)
+
+
+_Display of the live image feed from the camera._
+
+### Live View Window
+<!-- ![Live View Screenshot](./images/live_view.png) -->
+
+---
 ```
 windows:
     mkdir build
     cd build
     cmake -A "x64" -T "v142,host=x64" ..
-    open the VS project file and build from it
+    cd Release
+    ./RemoteCli
 ```
 
-```
-mac:
-    mkdir build
-    cd build
-    cmake -GXcode ..
-    open the Xcode project file and build from it
-```
+## 🔧 Setup Instructions
+
+### 🔥 1. Firewall Bypass for Visual Studio Code (VSCode)
+
+To allow network communication between the Sony camera and your development environment, you may need to bypass the Windows Firewall for VSCode:
+
+1. Open **Windows Defender Firewall**.
+2. Click on **"Allowed Applications"**.
+3. Click **"Change settings"** (Admin access may be required).
+4. Scroll to find `Visual Studio Code`. If not listed:
+    - Click **"Allow another app..."**
+    - Browse to the path: `C:\Users\<YourUser>\AppData\Local\Programs\Microsoft VS Code\Code.exe`
+6. Click **OK** to save changes.
+
+---
+
+### 🌐 2. Ethernet Port Setup for Static IP Communication
+
+Your Sony camera communicates over the network using a static IP. To set this up:
+
+1. Open **Control Panel → Network and Sharing Center → Change adapter settings**.
+2. Right-click your Ethernet adapter → **Properties**.
+3. Select **Internet Protocol Version 4 (TCP/IPv4)** → **Properties**.
+4. Choose **"Use the following IP address"** and enter:
+
+   - IP address: 192.168.2.1 (or whatever you have the camera configured to)
+   - Subnet mask: 255.255.255.0
+   - Default gateway: (leave blank)
+
+5. Click **OK**, then close all dialog boxes.
+6. Ensure the camera is connected to this Ethernet port using an Ethernet cable.
+
+> ⚠️ **Important**: This IP must match the expected camera IP (usually `192.168.x.x`).
+
+---
+
+### 📷 3. Pairing the Camera via Micro HDMI (Optional but Recommended)
+
+When you connect the camera navigate to settings oon the ILX and confirm pairing:
+
+1. Connect a **Micro HDMI cable** from the camera to an external monitor.
+2. Turn on the camera.
+3. Ensure the camera is in **PC Remote** mode.
+4. If prompted, accept any pairing request on the camera's screen or navigate to pairing menu.
+5. You should now be able to see the live feed and control menu when RemoteCli is executed.
+
+---
+
 
 ## copyright notice and disclaimer for OSS
 ### libssh2

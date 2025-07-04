@@ -87,6 +87,7 @@ public:
     void get_exposure_program_mode();
     void get_still_capture_mode();
     void get_focus_mode();
+    std::wstring get_focus_mode_output();
     void get_focus_area();
     void get_live_view();
     void get_live_view_only();
@@ -141,6 +142,7 @@ public:
     void set_exposure_program_mode();
     void set_still_capture_mode();
     void set_focus_mode();
+    void set_focus_mode_new(const std::wstring &label, int index);
     void set_focus_area();
     void set_live_view_image_quality();
     void set_af_area_position();
