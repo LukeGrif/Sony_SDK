@@ -12,7 +12,7 @@
 #pragma warning(disable : 4819) // warning C4819: The file contains a character that cannot be represented in the current code page (932). Save the file in Unicode format to prevent data loss
 #pragma warning(pop)
 #endif
-#include <typeinfo> // at the top of the file
+
 #include "CameraDevice.h"
 #include <chrono>
 #if defined(USE_EXPERIMENTAL_FS)
@@ -286,8 +286,7 @@ namespace cli
     {
         text input;
         tout << "Is the focus mode set to AF? (y/n): ";
-        // std::getline(tin, input);
-        input = TEXT("y"); // Force to "y" for AF shutter
+        std::getline(tin, input);
         if (input != TEXT("y"))
         {
             tout << "Set the focus mode to AF\n";
@@ -313,8 +312,7 @@ namespace cli
     {
         text input;
         tout << "Is the focus mode set to AF? (y/n): ";
-        // std::getline(tin, input);
-        input = TEXT("y"); // Force to "y" for AF shutter
+        std::getline(tin, input);
         if (input != TEXT("y"))
         {
             tout << "Set the focus mode to AF\n";
@@ -415,7 +413,7 @@ namespace cli
             SDK::SendCommand(m_device_handle, SDK::CrCommandId::CrCommandId_Release, SDK::CrCommandParam::CrCommandParam_Down);
 
             // Wait, then send shutter up
-            std::this_thread::sleep_for(500ms);
+            std::this_thread::sleep_for(500ms); // Chnage this to make the continuous shooting longer
             tout << "Shutter up\n";
             SDK::SendCommand(m_device_handle, SDK::CrCommandId::CrCommandId_Release, SDK::CrCommandParam::CrCommandParam_Up);
         }
@@ -476,14 +474,13 @@ namespace cli
 
     void CameraDevice::get_focus_mode()
     {
-        //tout << "Type of format_focus_mode(...) is: " << typeid(format_focus_mode(m_prop.focus_mode.current)).name() << '\n';
         load_properties();
         tout << "Focus Mode: " << format_focus_mode(m_prop.focus_mode.current) << '\n';
     }
 
     std::wstring CameraDevice::get_focus_mode_output()
     {
-        //tout << "Type of format_focus_mode(...) is: " << typeid(format_focus_mode(m_prop.focus_mode.current)).name() << '\n';
+        // tout << "Type of format_focus_mode(...) is: " << typeid(format_focus_mode(m_prop.focus_mode.current)).name() << '\n';
         tout << "Focus Mode: " << format_focus_mode(m_prop.focus_mode.current) << '\n';
         load_properties();
         return format_focus_mode(m_prop.focus_mode.current);

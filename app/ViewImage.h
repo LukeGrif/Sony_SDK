@@ -10,10 +10,10 @@
 class ViewImage
 {
 public:
-    void displayImage(const std::string &path,
-                      std::shared_ptr<cli::CameraDevice> camera,
-                      std::atomic<bool> &exitFlag,
-                      std::atomic<bool> &autoCaptureFlag);
+    // Replaces displayImage with a continuous UI loop
+    void runUI(std::shared_ptr<cli::CameraDevice> camera,
+               std::atomic<bool> &exitFlag,
+               std::atomic<bool> &autoCaptureFlag);
 
     static void onMouse(int event, int x, int y, int flags, void *userdata);
 
