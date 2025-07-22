@@ -25,6 +25,8 @@ _Example screenshot of the Control Centre window with dropdown expanded._
 
 _Display of the live image feed from the camera._
 
+![alt text](image-1.png)
+
 ### Live View Window
 <!-- ![Live View Screenshot](./images/live_view.png) -->
 

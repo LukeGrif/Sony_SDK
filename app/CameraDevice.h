@@ -82,6 +82,7 @@ public:
     void get_aperture();
     void get_iso();
     void get_shutter_speed();
+    std::wstring get_shutter_speed_output();
     bool get_extended_shutter_speed();
     void get_position_key_setting();
     void get_exposure_program_mode();
@@ -137,6 +138,7 @@ public:
     void set_iso();
     bool set_save_info() const;
     void set_shutter_speed();
+    void set_shutter_speed_new(const std::wstring &label, int index);
     void set_extended_shutter_speed();
     void set_position_key_setting();
     void set_exposure_program_mode();

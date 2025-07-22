@@ -277,7 +277,7 @@ namespace cli
         SDK::SendCommand(m_device_handle, SDK::CrCommandId::CrCommandId_Release, SDK::CrCommandParam_Down);
 
         // Wait, then send shutter up
-        std::this_thread::sleep_for(35ms);
+        std::this_thread::sleep_for(990ms);
         tout << "Shutter up\n";
         SDK::SendCommand(m_device_handle, SDK::CrCommandId::CrCommandId_Release, SDK::CrCommandParam_Up);
     }
@@ -412,8 +412,8 @@ namespace cli
             tout << "Shutter down\n";
             SDK::SendCommand(m_device_handle, SDK::CrCommandId::CrCommandId_Release, SDK::CrCommandParam::CrCommandParam_Down);
 
-            // Wait, then send shutter up
-            std::this_thread::sleep_for(500ms); // Chnage this to make the continuous shooting longer
+            // Simulates how long the button is pressed down
+            std::this_thread::sleep_for(500ms); // Change this to make the continuous shooting longer/shorter
             tout << "Shutter up\n";
             SDK::SendCommand(m_device_handle, SDK::CrCommandId::CrCommandId_Release, SDK::CrCommandParam::CrCommandParam_Up);
         }
@@ -440,6 +440,14 @@ namespace cli
     {
         load_properties();
         tout << "Shutter Speed: " << format_shutter_speed(m_prop.shutter_speed.current) << '\n';
+    }
+
+    std::wstring CameraDevice::get_shutter_speed_output()
+    {
+        load_properties();
+        tout << "Shutter Speed: " << format_shutter_speed(m_prop.shutter_speed.current) << '\n';
+        // Return the formatted shutter speed as wstring, not the raw property value
+        return format_shutter_speed(m_prop.shutter_speed.current);
     }
 
     bool CameraDevice::get_extended_shutter_speed()
@@ -1830,6 +1838,34 @@ namespace cli
 
         SDK::SetDeviceProperty(m_device_handle, &prop);
     }
+
+void CameraDevice::set_shutter_speed_new(const std::wstring &label, int index)
+{
+    // Check if the property is writable
+    if (1 != m_prop.shutter_speed.writable)
+    {
+        tout << "Shutter Speed is not writable\n";
+        return;
+    }
+
+    auto &values = m_prop.shutter_speed.possible;
+
+    // Validate index
+    if (index < 0 || static_cast<std::size_t>(index) >= values.size())
+    {
+        tout << "Invalid shutter speed index: " << index << '\n';
+        return;
+    }
+
+    tout << "Setting Shutter Speed to [" << index << "] " << format_shutter_speed(values[index]) << '\n';
+
+    SDK::CrDeviceProperty prop;
+    prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ShutterSpeed);
+    prop.SetCurrentValue(values[index]);
+    prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
+
+    SDK::SetDeviceProperty(m_device_handle, &prop);
+}
 
     void CameraDevice::set_extended_shutter_speed()
     {
