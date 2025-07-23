@@ -19,20 +19,9 @@ static std::vector<std::wstring> shutterSpeeds = {
 static std::wstring currentShutterSpeed = shutterSpeeds[0];
 static bool showShutterDropdown = false;
 
-// Shutter speed dropdown additions
-static std::vector<std::wstring> isoSpeeds = {
-    
-};
-static std::wstring currentIsoSpeed = isoSpeeds[0];
-static bool showIsoDropdown = false;
-
 // Scrollable dropdown state
 static int shutterDropdownOffset = 0;
 static const int maxVisibleShutterItems = 6; // Number of visible items in dropdown
-
-// Scrollable dropdown state
-static int isoDropdownOffset = 0;
-static const int maxVisibleIsoItems = 6; // Number of visible items in dropdown
 
 void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &autoCaptureFlag)
 {

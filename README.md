@@ -25,17 +25,16 @@ _Example screenshot of the Control Centre window with dropdown expanded._
 
 _Display of the live image feed from the camera._
 
-![alt text](image-1.png)
-
 ### Live View Window
 <!-- ![Live View Screenshot](./images/live_view.png) -->
-
+![alt text](image-2.png)
 ---
 ```
 windows:
     mkdir build
     cd build
-    cmake -A "x64" -T "v142,host=x64" ..
+    cmake .. -G "Visual Studio 17 2022" -A x64
+    cmake --build . --config Release
     cd Release
     ./RemoteCli
 ```
@@ -82,7 +81,10 @@ When you connect the camera navigate to settings oon the ILX and confirm pairing
 
 1. Connect a **Micro HDMI cable** from the camera to an external monitor.
 2. Turn on the camera.
-3. Ensure the camera is in **PC Remote** mode.
+3. On the camera:
+Go to Setup → USB Connection → PC Remote Function
+Make sure Authentication Setting = Off
+3. Ensure the camera is in **PC Remote** mode. In the Remote Function menu, select Pairing and ensure the PC is properly paired.
 4. If prompted, accept any pairing request on the camera's screen or navigate to pairing menu.
 5. You should now be able to see the live feed and control menu when RemoteCli is executed.
 
