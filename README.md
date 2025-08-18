@@ -33,7 +33,8 @@ _Display of the live image feed from the camera._
 windows:
     mkdir build
     cd build
-    cmake -A "x64" -T "v142,host=x64" ..
+    cmake -A "x64" ..
+    cmake --build . --config Release
     cd Release
     ./RemoteCli
 ```
