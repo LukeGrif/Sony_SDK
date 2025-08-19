@@ -33,18 +33,39 @@ void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &autoCapture
     }
 
     // Buttons
+    // Focus
     cv::rectangle(settingsWindow, cv::Rect(30, 270, 160, 40), cv::Scalar(180, 180, 180), -1);
     cv::putText(settingsWindow, "Focus", {50, 295}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {0, 0, 0}, 2);
 
+    // Capture
     cv::rectangle(settingsWindow, cv::Rect(30, 320, 160, 40), cv::Scalar(180, 180, 180), -1);
     cv::putText(settingsWindow, "Capture", {50, 345}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {0, 0, 0}, 2);
 
+    // Auto Capture
     cv::rectangle(settingsWindow, cv::Rect(30, 370, 160, 40),
                   autoCaptureFlag.load() ? cv::Scalar(100, 250, 100) : cv::Scalar(180, 180, 180), -1);
     cv::putText(settingsWindow, "Auto Capture", {35, 395}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {0, 0, 0}, 2);
 
+    // Exit
     cv::rectangle(settingsWindow, cv::Rect(220, 370, 160, 40), cv::Scalar(50, 50, 50), -1);
     cv::putText(settingsWindow, "Exit", {250, 395}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {255, 255, 255}, 2);
+
+    // New buttons
+    // Exposure Mode
+    cv::rectangle(settingsWindow, cv::Rect(250, 120, 160, 40), cv::Scalar(180, 180, 180), -1);
+    cv::putText(settingsWindow, "Exposure Mode", {260, 145}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {0, 0, 0}, 2);
+
+    // Shutter Speed
+    cv::rectangle(settingsWindow, cv::Rect(250, 170, 160, 40), cv::Scalar(180, 180, 180), -1);
+    cv::putText(settingsWindow, "Shutter Speed", {260, 195}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {0, 0, 0}, 2);
+
+    // Aperture
+    cv::rectangle(settingsWindow, cv::Rect(250, 220, 160, 40), cv::Scalar(180, 180, 180), -1);
+    cv::putText(settingsWindow, "Aperture", {260, 245}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {0, 0, 0}, 2);
+
+    // ISO
+    cv::rectangle(settingsWindow, cv::Rect(250, 270, 160, 40), cv::Scalar(180, 180, 180), -1);
+    cv::putText(settingsWindow, "ISO", {260, 295}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {0, 0, 0}, 2);
 }
 
 void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
@@ -53,7 +74,8 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
 {
     CallbackContext context{camera, &exitFlag, &autoCaptureFlag};
 
-    std::thread autoCaptureThread([&]() {
+    std::thread autoCaptureThread([&]()
+                                  {
         while (!exitFlag)
         {
             if (autoCaptureFlag.load())
@@ -71,8 +93,7 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
             {
                 //std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
-        }
-    });
+        } });
 
     while (!exitFlag)
     {
@@ -105,7 +126,6 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
 
     cv::destroyAllWindows();
 }
-
 
 void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
 {
@@ -149,14 +169,27 @@ void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
     else if (x >= 30 && x <= 190 && y >= 270 && y <= 310)
     {
         std::cout << "[Focus] clicked\n";
-        //std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+        system("curl -s http://192.168.3.70/?command=START");
+        std::cout << "\nSent START\n";
+
         camera->s1_shooting();
+
+        system("curl -s http://192.168.3.70/?command=STOP");
+        std::cout << "\nSent STOP\n";
     }
     else if (x >= 30 && x <= 190 && y >= 320 && y <= 360)
     {
         std::cout << "[Capture] clicked\n";
-        //std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        camera->af_shutter();
+        // std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        system("curl -s http://192.168.2.70/?command=START");
+        std::cout << "\nSent START\n";
+
+        camera->capture_image();
+
+        system("curl -s http://192.168.2.70/?command=STOP");
+        std::cout << "\nSent STOP\n";
     }
     else if (x >= 30 && x <= 190 && y >= 370 && y <= 410)
     {
@@ -167,5 +200,30 @@ void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
     {
         std::cout << "[Exit] clicked\n";
         *exitFlag = true;
+    }
+    // New buttons
+    else if (x >= 250 && x <= 410 && y >= 120 && y <= 160)
+    {
+        std::cout << "[Exposure Mode] clicked\n";
+        camera->get_exposure_program_mode();
+        camera->set_exposure_program_mode();
+    }
+    else if (x >= 250 && x <= 410 && y >= 170 && y <= 210)
+    {
+        std::cout << "[Shutter Speed] clicked\n";
+        camera->get_shutter_speed();
+        camera->set_shutter_speed();
+    }
+    else if (x >= 250 && x <= 410 && y >= 220 && y <= 260)
+    {
+        std::cout << "[Aperture] clicked\n";
+        camera->get_aperture();
+        camera->set_aperture();
+    }
+    else if (x >= 250 && x <= 410 && y >= 270 && y <= 310)
+    {
+        std::cout << "[ISO] clicked\n";
+        camera->get_iso();
+        camera->set_iso();
     }
 }
