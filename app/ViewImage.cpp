@@ -171,12 +171,12 @@ void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
         std::cout << "[Focus] clicked\n";
         // std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-        system("curl -s http://192.168.3.70/?command=START");
+        // system("curl -s http://192.168.3.70/?command=START");
         std::cout << "\nSent START\n";
 
         camera->s1_shooting();
 
-        system("curl -s http://192.168.3.70/?command=STOP");
+        // system("curl -s http://192.168.3.70/?command=STOP");
         std::cout << "\nSent STOP\n";
     }
     else if (x >= 30 && x <= 190 && y >= 320 && y <= 360)
