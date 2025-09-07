@@ -429,6 +429,14 @@ namespace cli
         tout << format_f_number(m_prop.f_number.current) << '\n';
     }
 
+    std::wstring CameraDevice::get_aperture_output()
+    {
+        // tout << "Type of format_iso_sensitivity(...) is: " << typeid(format_iso_sensitivity(m_prop.iso_sensitivity.current)).name() << '\n';
+        tout << "Aperture: " << format_f_number(m_prop.f_number.current) << '\n';
+        load_properties();
+        return format_f_number(m_prop.f_number.current);
+    }
+
     void CameraDevice::get_iso()
     {
         load_properties();
@@ -436,10 +444,26 @@ namespace cli
         tout << "ISO: " << format_iso_sensitivity(m_prop.iso_sensitivity.current) << '\n';
     }
 
+    std::wstring CameraDevice::get_iso_output()
+    {
+        // tout << "Type of format_iso_sensitivity(...) is: " << typeid(format_iso_sensitivity(m_prop.iso_sensitivity.current)).name() << '\n';
+        tout << "ISO: " << format_iso_sensitivity(m_prop.iso_sensitivity.current) << '\n';
+        load_properties();
+        return format_iso_sensitivity(m_prop.iso_sensitivity.current);
+    }
+
     void CameraDevice::get_shutter_speed()
     {
         load_properties();
         tout << "Shutter Speed: " << format_shutter_speed(m_prop.shutter_speed.current) << '\n';
+    }
+
+    std::wstring CameraDevice::get_shutter_speed_output()
+    {
+        // tout << "Type of format_iso_sensitivity(...) is: " << typeid(format_iso_sensitivity(m_prop.iso_sensitivity.current)).name() << '\n';
+        tout << "Shutter Speed: " << format_shutter_speed(m_prop.shutter_speed.current) << '\n';
+        load_properties();
+        return format_shutter_speed(m_prop.shutter_speed.current);
     }
 
     bool CameraDevice::get_extended_shutter_speed()
@@ -466,6 +490,14 @@ namespace cli
         tout << "Exposure Program Mode: " << format_exposure_program_mode(m_prop.exposure_program_mode.current) << '\n';
     }
 
+    std::wstring CameraDevice::get_exposure_program_mode_output()
+    {
+        // tout << "Type of format_iso_sensitivity(...) is: " << typeid(format_iso_sensitivity(m_prop.iso_sensitivity.current)).name() << '\n';
+        tout << "Exposure Program Mode: " << format_exposure_program_mode(m_prop.exposure_program_mode.current) << '\n';
+        load_properties();
+        return format_exposure_program_mode(m_prop.exposure_program_mode.current);
+    }
+
     void CameraDevice::get_still_capture_mode()
     {
         load_properties();
@@ -490,6 +522,14 @@ namespace cli
     {
         load_properties();
         tout << "Focus Area: " << format_focus_area(m_prop.focus_area.current) << '\n';
+    }
+
+    std::wstring CameraDevice::get_focus_area_output()
+    {
+        // tout << "Type of format_focus_area(...) is: " << typeid(format_focus_area(m_prop.focus_area.current)).name() << '\n';
+        tout << "Focus Area: " << format_focus_area(m_prop.focus_area.current) << '\n';
+        load_properties();
+        return format_focus_area(m_prop.focus_area.current);
     }
 
     void CameraDevice::get_live_view_only()
@@ -596,7 +636,7 @@ namespace cli
         auto path = fs::current_path();
         path.append(TEXT("LiveView000000.JPG"));
 #endif
-        tout << path << '\n';
+        //tout << path << '\n';
 
         std::ofstream file(path, std::ios::out | std::ios::binary);
         if (!file.bad())
@@ -1118,6 +1158,15 @@ namespace cli
         load_properties();
         tout << "White Balance: " << format_white_balance(m_prop.white_balance.current) << '\n';
     }
+
+    std::wstring CameraDevice::get_white_balance_output()
+    {
+        // tout << "Type of format_focus_area(...) is: " << typeid(format_focus_area(m_prop.focus_area.current)).name() << '\n';
+        tout << "Focus Area: " << format_white_balance(m_prop.focus_area.current) << '\n';
+        load_properties();
+        return format_white_balance(m_prop.focus_area.current);
+    }
+
 
     bool CameraDevice::get_custom_wb()
     {

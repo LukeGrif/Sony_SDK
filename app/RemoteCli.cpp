@@ -15,6 +15,9 @@
 #include "Text.h"
 #include "ViewImage.h"
 
+
+
+
 namespace SDK = SCRSDK;
 typedef std::shared_ptr<cli::CameraDevice> CameraDevicePtr;
 

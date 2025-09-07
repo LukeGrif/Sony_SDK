@@ -80,15 +80,20 @@ public:
     // Should be const functions, but requires load property, which is not
 
     void get_aperture();
+    std::wstring get_aperture_output();
     void get_iso();
+    std::wstring get_iso_output();
     void get_shutter_speed();
+    std::wstring get_shutter_speed_output();
     bool get_extended_shutter_speed();
     void get_position_key_setting();
     void get_exposure_program_mode();
+    std::wstring get_exposure_program_mode_output();
     void get_still_capture_mode();
     void get_focus_mode();
     std::wstring get_focus_mode_output();
     void get_focus_area();
+    std::wstring get_focus_area_output();
     void get_live_view();
     void get_live_view_only();
     void get_live_view_and_OSD();
@@ -96,6 +101,7 @@ public:
     void get_af_area_position();
     void get_select_media_format();
     void get_white_balance();
+    std::wstring get_white_balance_output();
     bool get_custom_wb();
     void get_zoom_operation();
     void get_remocon_zoom_speed_type();
