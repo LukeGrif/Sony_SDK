@@ -140,12 +140,16 @@ public:
     bool get_zoom_position_setting();
 
     void set_aperture();
+    void set_aperture_new(const std::wstring &label, int index);
     void set_iso();
+    void set_iso_new(const std::wstring &label, int index);
     bool set_save_info() const;
     void set_shutter_speed();
+    void set_shutter_speed_new(const std::wstring &label, int index);
     void set_extended_shutter_speed();
     void set_position_key_setting();
     void set_exposure_program_mode();
+    void set_exposure_program_mode_new(const std::wstring &label, int index);
     void set_still_capture_mode();
     void set_focus_mode();
     void set_focus_mode_new(const std::wstring &label, int index);

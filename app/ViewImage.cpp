@@ -4,10 +4,9 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
-#include <cstdlib>
-#include <algorithm>  // max/min
-#include <filesystem> // NEW for file search
-#include <algorithm>  // for transform
+#include <algorithm>
+#include <filesystem>
+
 #define NOMINMAX
 #include <windows.h>
 
@@ -19,28 +18,60 @@ namespace fs = std::filesystem;
 static std::vector<std::wstring> focusModes = {L"AF_S", L"AF_A", L"AF_C", L"DMF", L"MF"};
 static std::wstring currentFocusMode;
 static bool showDropdown = false;
-static int liveViewWidth = 1064;
-static int liveViewHeight = 680;
+
+// Shutter speed dropdown state
+static std::vector<std::wstring> shutterSpeeds = {
+    L"Bulb", L"30\"", L"25\"", L"20\"", L"15\"", L"13\"", L"10\"", L"8\"", L"6\"", L"5\"",
+    L"4\"", L"3.2\"", L"2.5\"", L"2\"", L"1.6\"", L"1.3\"", L"1\"", L"0.8\"", L"0.6\"", L"0.5\"",
+    L"0.4\"", L"1/3", L"1/4", L"1/5", L"1/6", L"1/8", L"1/10", L"1/13", L"1/15", L"1/20",
+    L"1/25", L"1/30", L"1/40", L"1/50", L"1/60", L"1/80", L"1/100", L"1/125", L"1/160", L"1/200",
+    L"1/250", L"1/320", L"1/400", L"1/500", L"1/640", L"1/800", L"1/1,000", L"1/1,250", L"1/1,600",
+    L"1/2,000", L"1/2,500", L"1/3,200", L"1/4,000"};
+static std::wstring currentShutterSpeedMode = shutterSpeeds[0];
+static bool showShutterDropdown = false;
+static int shutterDropdownScroll = 0;
+static const int SHUTTER_DROPDOWN_VISIBLE = 8;
+
+// Aperture dropdown state
+static std::vector<std::wstring> apertureValues = {
+    L"F2.79999", L"F3.19999", L"F3.5", L"F4", L"F4.5", L"F5", L"F5.59999", L"F6.29999", L"F7.09999",
+    L"F8", L"F9", L"F10", L"F11", L"F13", L"F14", L"F16", L"F18", L"F20", L"F22"};
+static std::wstring currentApertureMode = apertureValues[0];
+static bool showApertureDropdown = false;
+static int apertureDropdownScroll = 0;
+static const int APERTURE_DROPDOWN_VISIBLE = 8;
+
+// ISO dropdown state
+static std::vector<std::wstring> isoValues = {
+    L"ISO AUTO", L"ISO 50", L"ISO 64", L"ISO 80", L"ISO 100", L"ISO 125", L"ISO 160", L"ISO 200",
+    L"ISO 250", L"ISO 320", L"ISO 400", L"ISO 500", L"ISO 640", L"ISO 800", L"ISO 1,000", L"ISO 1,250",
+    L"ISO 1,600", L"ISO 2,000", L"ISO 2,500", L"ISO 3,200", L"ISO 4,000", L"ISO 5,000", L"ISO 6,400",
+    L"ISO 8,000", L"ISO 10,000", L"ISO 12,800", L"ISO 16,000", L"ISO 20,000", L"ISO 25,600", L"ISO 32,000",
+    L"ISO 40,000", L"ISO 51,200", L"ISO 64,000", L"ISO 80,000", L"ISO 102,400"};
+static std::wstring currentISOMode = isoValues[0];
+static bool showISODropdown = false;
+static int isoDropdownScroll = 0;
+static const int ISO_DROPDOWN_VISIBLE = 8;
+
+// Exposure Program Mode dropdown state
+static std::vector<std::wstring> exposureModes = {
+    L"Auto", L"P_Auto", L"A_AperturePriority", L"S_ShutterSpeedPriority", L"M_Manual", L"Portrait",
+    L"Sports_Action", L"Macro", L"Landscape", L"Sunset", L"Night"};
+static std::wstring currentExposureProgramMode = exposureModes[0];
+static bool showExposureDropdown = false;
+static int exposureDropdownScroll = 0;
+static const int EXPOSURE_DROPDOWN_VISIBLE = 6;
 
 // Interval input state
-static std::atomic<int> autoIntervalMs{3000}; // default 3000 ms
-static bool editingInterval = false;          // whether the input box is focused
-static std::string intervalBuf = "3000";      // editable text buffer shown in the box
+static std::atomic<int> autoIntervalMs{3000};
+static bool editingInterval = false;
+static std::string intervalBuf = "3000";
 
-// Current read-only values (wstring like your focus getter)
+// Current read-only values (from camera)
 static std::wstring currentExposureMode;
 static std::wstring currentShutterSpeed;
 static std::wstring currentAperture;
 static std::wstring currentISO;
-
-// NEW: bottom (green) button values shown UNDER each button
-static std::wstring currentFormat;
-static std::wstring currentType;
-static std::wstring currentQuality;
-static std::wstring currentSize;
-static std::wstring currentWBMode;
-static std::wstring currentWBValue;
-static std::wstring currentFocusArea;
 
 // Utility: convert wstring -> narrow for OpenCV text
 static std::string ws2s(const std::wstring &ws)
@@ -51,143 +82,118 @@ static std::string ws2s(const std::wstring &ws)
 // ------------------- Layout -------------------
 struct UIRects
 {
-    // Header
     cv::Point titlePos;
 
-    // Dropdown (Focus Mode)
-    cv::Rect dropdownBox;
+    // Top-row dropdowns (compact)
+    cv::Rect dropdownBox; // Focus Mode
     std::vector<cv::Rect> dropdownItems;
 
-    // Left column (actions)
+    cv::Rect exposureDropdownBox; // Exposure Mode (now beside Focus)
+    std::vector<cv::Rect> exposureDropdownItems;
+
+    cv::Rect shutterDropdownBox; // Shutter
+    std::vector<cv::Rect> shutterDropdownItems;
+
+    cv::Rect apertureDropdownBox; // Aperture
+    std::vector<cv::Rect> apertureDropdownItems;
+
+    cv::Rect isoDropdownBox; // ISO
+    std::vector<cv::Rect> isoDropdownItems;
+
+    // Buttons and values
     cv::Rect btnFocus;
     cv::Rect btnCapture;
     cv::Rect btnAutoCapture;
 
-    // Right column (setting buttons)
-    cv::Rect btnExposureMode;
-    cv::Rect btnShutterSpeed;
-    cv::Rect btnAperture;
-    cv::Rect btnISO;
-    cv::Rect btnResetLiveView;
-
-    // Read-only value boxes
-    cv::Rect valExposureMode;
-    cv::Rect valShutterSpeed;
-    cv::Rect valAperture;
-    cv::Rect valISO;
-
-    // Interval input box
     cv::Rect intervalBox;
-
-    // Bottom grid buttons
-    cv::Rect btnFormat;
-    cv::Rect btnType;
-    cv::Rect btnQuality;
-    cv::Rect btnSize;
-    cv::Rect btnWhiteBalance;
-    cv::Rect btnWhiteFocusValue;
-    cv::Rect btnFocusArea;
-
-    // Value boxes UNDER each green button
-    cv::Rect valFormat;
-    cv::Rect valType;
-    cv::Rect valQuality;
-    cv::Rect valSize;
-    cv::Rect valWhiteBalance;
-    cv::Rect valWhiteFocusValue;
-    cv::Rect valFocusArea;
-
-    // New buttons
     cv::Rect btnOpenLatest;
     cv::Rect btnExit;
 };
 
-static const int CC_WIDTH = 1100;
-static const int CC_HEIGHT = 1100;
+// Smaller control-centre window
+static const int CC_WIDTH = 1080;
+static const int CC_HEIGHT = 600;
 
 static UIRects makeLayout()
 {
     UIRects r{};
-    r.titlePos = {30, 60};
+    r.titlePos = {20, 40};
 
-    const int ddX = 30, ddY = 90, ddW = 260, ddH = 46;
-    r.dropdownBox = {ddX, ddY, ddW, ddH};
-    const int itemH = 46, itemGap = 6;
-    int listTop = ddY + ddH + 8;
-    for (size_t i = 0; i < focusModes.size(); ++i)
+    // Sizes (smaller)
+    const int ddH = 40;
+    const int gapX = 16;
+    const int gapY = 14;
+
+    // Top row origin
+    const int topX = 20;
+    const int topY = 60;
+
+    // Focus Mode dropdown (narrower)
+    const int focusW = 180;
+    r.dropdownBox = {topX, topY, focusW, ddH};
     {
-        int y = listTop + static_cast<int>(i) * (itemH + itemGap);
-        r.dropdownItems.push_back(cv::Rect(ddX, y, ddW, itemH));
+        const int itemH = 34, itemGap = 4, listTop = topY + ddH + 6;
+        for (size_t i = 0; i < focusModes.size(); ++i)
+            r.dropdownItems.push_back(cv::Rect(topX, listTop + int(i) * (itemH + itemGap), focusW, itemH));
     }
 
-    const int btnW = 240, btnH = 60, gapY = 16;
-    int leftX = 30;
-    int y = r.dropdownItems.empty() ? (ddY + ddH + 20) : (r.dropdownItems.back().y + r.dropdownItems.back().height + 20);
+    // Exposure Mode beside Focus
+    const int expoX = r.dropdownBox.x + r.dropdownBox.width + gapX;
+    const int expoW = 220;
+    r.exposureDropdownBox = {expoX, topY, expoW, ddH};
+    {
+        const int itemH = 34, itemGap = 4, listTop = topY + ddH + 6;
+        for (size_t i = 0; i < exposureModes.size(); ++i)
+            r.exposureDropdownItems.push_back(cv::Rect(expoX, listTop + int(i) * (itemH + itemGap), expoW, itemH));
+    }
+
+    // Shutter, Aperture, ISO continue on the row
+    const int shutX = r.exposureDropdownBox.x + r.exposureDropdownBox.width + gapX;
+    const int shutW = 200;
+    r.shutterDropdownBox = {shutX, topY, shutW, ddH};
+    {
+        const int itemH = 30, itemGap = 4, listTop = topY + ddH + 6;
+        for (size_t i = 0; i < shutterSpeeds.size(); ++i)
+            r.shutterDropdownItems.push_back(cv::Rect(shutX, listTop + int(i) * (itemH + itemGap), shutW, itemH));
+    }
+
+    const int apX = r.shutterDropdownBox.x + r.shutterDropdownBox.width + gapX;
+    const int apW = 150;
+    r.apertureDropdownBox = {apX, topY, apW, ddH};
+    {
+        const int itemH = 30, itemGap = 4, listTop = topY + ddH + 6;
+        for (size_t i = 0; i < apertureValues.size(); ++i)
+            r.apertureDropdownItems.push_back(cv::Rect(apX, listTop + int(i) * (itemH + itemGap), apW, itemH));
+    }
+
+    const int isoX = r.apertureDropdownBox.x + r.apertureDropdownBox.width + gapX;
+    const int isoW = 200;
+    r.isoDropdownBox = {isoX, topY, isoW, ddH};
+    {
+        const int itemH = 30, itemGap = 4, listTop = topY + ddH + 6;
+        for (size_t i = 0; i < isoValues.size(); ++i)
+            r.isoDropdownItems.push_back(cv::Rect(isoX, listTop + int(i) * (itemH + itemGap), isoW, itemH));
+    }
+
+    // Buttons row beneath the dropdowns
+    const int btnW = 200, btnH = 48;
+    const int colGap = gapX;
+    int leftX = 20;
+    int y = topY + ddH + 280; // space under dropdown lists
+
+    // Row: Focus | Capture | Open Latest | Exit
     r.btnFocus = {leftX, y, btnW, btnH};
-    y += btnH + gapY;
-    r.btnCapture = {leftX, y, btnW, btnH};
+    int x2 = leftX + btnW + colGap;
+    r.btnCapture = {x2, y, btnW, btnH};
+    int x3 = x2 + btnW + colGap;
+    r.btnOpenLatest = {x3, y, btnW, btnH};
+    int x4 = x3 + btnW + colGap;
+    r.btnExit = {x4, y, btnW, btnH};
+
+    // Next row: Auto-capture and interval input
     y += btnH + gapY;
     r.btnAutoCapture = {leftX, y, btnW, btnH};
-
-    int rightX = leftX + btnW + 30;
-    y = ddY + 60;
-    r.btnExposureMode = {rightX, y, btnW, btnH};
-    y += btnH + gapY;
-    r.btnShutterSpeed = {rightX, y, btnW, btnH};
-    y += btnH + gapY;
-    r.btnAperture = {rightX, y, btnW, btnH};
-    y += btnH + gapY;
-    r.btnISO = {rightX, y, btnW, btnH};
-    y += btnH + gapY;
-    r.btnResetLiveView = {rightX, y, btnW, btnH};
-
-    int valX = rightX + btnW + 20;
-    int valW = 260;
-    int vy = ddY + 60;
-    r.valExposureMode = {valX, vy, valW, btnH};
-    vy += btnH + gapY;
-    r.valShutterSpeed = {valX, vy, valW, btnH};
-    vy += btnH + gapY;
-    r.valAperture = {valX, vy, valW, btnH};
-    vy += btnH + gapY;
-    r.valISO = {valX, vy, valW, btnH};
-
-    y += btnH + gapY;
-    r.intervalBox = {rightX, y + 15, btnW, btnH};
-
-    int gridTop = std::max(
-                      r.btnAutoCapture.y + r.btnAutoCapture.height,
-                      std::max(r.intervalBox.y + r.intervalBox.height, r.valISO.y + r.valISO.height)) +
-                  30;
-
-    int cellW = 220, cellH = 60, gapX = 20, gapY2 = 50;
-    int col1 = 30, col2 = col1 + cellW + gapX, col3 = col2 + cellW + gapX;
-
-    r.btnFormat = {col1, gridTop, cellW, cellH};
-    r.btnType = {col2, gridTop, cellW, cellH};
-    r.btnQuality = {col3, gridTop, cellW, cellH};
-
-    const int valH = 28, valGap = 6;
-    r.valFormat = {col1, r.btnFormat.y + cellH + valGap, cellW, valH};
-    r.valType = {col2, r.btnType.y + cellH + valGap, cellW, valH};
-    r.valQuality = {col3, r.btnQuality.y + cellH + valGap, cellW, valH};
-
-    int row2Top = std::max(std::max(r.valFormat.y + valH, r.valType.y + valH), r.valQuality.y + valH) + gapY2;
-    r.btnSize = {col1, row2Top, cellW, cellH};
-    r.btnWhiteBalance = {col2, row2Top, cellW, cellH};
-    r.btnWhiteFocusValue = {col3, row2Top, cellW, cellH};
-
-    r.valSize = {col1, r.btnSize.y + cellH + valGap, cellW, valH};
-    r.valWhiteBalance = {col2, r.btnWhiteBalance.y + cellH + valGap, cellW, valH};
-    r.valWhiteFocusValue = {col3, r.btnWhiteFocusValue.y + cellH + valGap, cellW, valH};
-
-    int row3Top = std::max({r.valSize.y + valH, r.valWhiteBalance.y + valH, r.valWhiteFocusValue.y + valH}) + gapY2;
-    r.btnFocusArea = {col1, row3Top, cellW, cellH};
-    r.valFocusArea = {col1, r.btnFocusArea.y + cellH + valGap, cellW, valH};
-
-    // New buttons
-    r.btnOpenLatest = {CC_WIDTH - 200, CC_HEIGHT - 140, 170, 50};
-    r.btnExit = {CC_WIDTH - 200, CC_HEIGHT - 70, 170, 50};
+    r.intervalBox = {leftX + btnW + colGap, y, btnW, btnH};
 
     return r;
 }
@@ -198,87 +204,50 @@ static void drawButton(cv::Mat &img, const cv::Rect &rc, const std::string &labe
 {
     cv::rectangle(img, rc, fill, cv::FILLED, cv::LINE_AA);
     int baseline = 0;
-    double fontScale = 0.9;
+    double fontScale = 0.85;
     int thickness = 2;
     auto size = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, fontScale, thickness, &baseline);
-    cv::Point textOrg(rc.x + (rc.width - size.width) / 2, rc.y + (rc.height + size.height) / 2 - 4);
+    cv::Point textOrg(rc.x + (rc.width - size.width) / 2, rc.y + (rc.height + size.height) / 2 - 3);
     cv::putText(img, label, textOrg, cv::FONT_HERSHEY_SIMPLEX, fontScale, textColor, thickness, cv::LINE_AA);
 }
 
 static void drawInputBox(cv::Mat &img, const cv::Rect &rc, const std::string &text, bool focused)
 {
-    // Background
     cv::Scalar bg = {245, 245, 245};
     cv::rectangle(img, rc, bg, cv::FILLED, cv::LINE_AA);
-
-    // Border (red if focused)
     cv::Scalar border = focused ? cv::Scalar(0, 0, 255) : cv::Scalar(150, 150, 150);
     cv::rectangle(img, rc, border, 2, cv::LINE_AA);
-
-    // Text (left aligned)
-    double fontScale = 0.9;
+    double fontScale = 0.85;
     int thickness = 2, baseline = 0;
     auto sz = cv::getTextSize(text.empty() ? "enter ms" : text,
                               cv::FONT_HERSHEY_SIMPLEX, fontScale, thickness, &baseline);
     cv::Scalar tc = text.empty() ? cv::Scalar(120, 120, 120) : cv::Scalar(0, 0, 0);
-    cv::Point org(rc.x + 10, rc.y + (rc.height + sz.height) / 2 - 4);
+    cv::Point org(rc.x + 10, rc.y + (rc.height + sz.height) / 2 - 3);
     cv::putText(img, text.empty() ? "enter ms" : text, org,
                 cv::FONT_HERSHEY_SIMPLEX, fontScale, tc, thickness, cv::LINE_AA);
-
-    // Label above
     std::string label = "Auto Capture Interval (ms)";
-    cv::putText(img, label, {rc.x, rc.y - 8}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {60, 60, 60}, 1, cv::LINE_AA);
+    cv::putText(img, label, {rc.x, rc.y - 6}, cv::FONT_HERSHEY_SIMPLEX, 0.55, {60, 60, 60}, 1, cv::LINE_AA);
 }
 
-// Read-only compact value box (grey, under a button)
-static void drawUnderValueBox(cv::Mat &img, const cv::Rect &rc, const std::string &value)
+static void drawLabelAbove(cv::Mat &img, const cv::Rect &rc, const std::string &label)
 {
-    cv::rectangle(img, rc, {238, 238, 238}, cv::FILLED, cv::LINE_AA);
-    cv::rectangle(img, rc, {160, 160, 160}, 1, cv::LINE_AA);
-
-    // Value, left aligned
-    int baseline = 0;
-    double fontScale = 0.7;
-    int thickness = 1;
-    auto sz = cv::getTextSize(value, cv::FONT_HERSHEY_SIMPLEX, fontScale, thickness, &baseline);
-    cv::Point org(rc.x + 8, rc.y + (rc.height + sz.height) / 2 - 2);
-    cv::putText(img, value, org, cv::FONT_HERSHEY_SIMPLEX, fontScale, {0, 0, 0}, thickness, cv::LINE_AA);
-}
-
-// Read-only value box (to the right)
-static void drawValueBoxRight(cv::Mat &img, const cv::Rect &rc, const std::string &label, const std::string &value)
-{
-    // Label above
-    // cv::putText(img, label, {rc.x, rc.y - 8}, cv::FONT_HERSHEY_SIMPLEX, 0.6, {60,60,60}, 1, cv::LINE_AA);
-
-    // Box
-    cv::rectangle(img, rc, {235, 235, 235}, cv::FILLED, cv::LINE_AA);
-    cv::rectangle(img, rc, {140, 140, 140}, 2, cv::LINE_AA);
-
-    // Value (left aligned)
-    int baseline = 0;
-    double fontScale = 0.9;
-    int thickness = 2;
-    auto sz = cv::getTextSize(value, cv::FONT_HERSHEY_SIMPLEX, fontScale, thickness, &baseline);
-    cv::Point org(rc.x + 10, rc.y + (rc.height + sz.height) / 2 - 4);
-    cv::putText(img, value, org, cv::FONT_HERSHEY_SIMPLEX, fontScale, {0, 0, 0}, thickness, cv::LINE_AA);
+    cv::putText(img, label, {rc.x, rc.y - 6}, cv::FONT_HERSHEY_SIMPLEX, 0.55, {60, 60, 60}, 1, cv::LINE_AA);
 }
 
 static void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &autoCaptureFlag, const UIRects &r)
 {
-    // Title
-    cv::putText(settingsWindow, "Control Centre", r.titlePos, cv::FONT_HERSHEY_SIMPLEX, 1.5, {0, 0, 0}, 4, cv::LINE_AA);
+    int baseline = 0;
+    cv::putText(settingsWindow, "Camera Control Centre", r.titlePos, cv::FONT_HERSHEY_SIMPLEX, 1.2, {0, 0, 0}, 3, cv::LINE_AA);
 
-    // Focus Mode current selection
+    // Focus
+    drawLabelAbove(settingsWindow, r.dropdownBox, "Focus Mode");
     cv::rectangle(settingsWindow, r.dropdownBox, {200, 200, 200}, cv::FILLED, cv::LINE_AA);
     std::string currentStr(currentFocusMode.begin(), currentFocusMode.end());
-    int baseline = 0;
-    auto sz = cv::getTextSize(currentStr, cv::FONT_HERSHEY_SIMPLEX, 1.0, 2, &baseline);
+    auto sz = cv::getTextSize(currentStr, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
     cv::putText(settingsWindow, currentStr,
                 {r.dropdownBox.x + 10, r.dropdownBox.y + (r.dropdownBox.height + sz.height) / 2},
-                cv::FONT_HERSHEY_SIMPLEX, 1.0, {0, 0, 0}, 2, cv::LINE_AA);
+                cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
 
-    // Dropdown items
     if (showDropdown)
     {
         for (size_t i = 0; i < r.dropdownItems.size(); ++i)
@@ -286,54 +255,199 @@ static void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &auto
             const auto &itemRc = r.dropdownItems[i];
             cv::rectangle(settingsWindow, itemRc, {220, 220, 220}, cv::FILLED, cv::LINE_AA);
             std::string s(focusModes[i].begin(), focusModes[i].end());
-            auto sz2 = cv::getTextSize(s, cv::FONT_HERSHEY_SIMPLEX, 1.0, 2, &baseline);
+            auto sz2 = cv::getTextSize(s, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
             cv::putText(settingsWindow, s,
                         {itemRc.x + 10, itemRc.y + (itemRc.height + sz2.height) / 2},
-                        cv::FONT_HERSHEY_SIMPLEX, 1.0, {0, 0, 0}, 2, cv::LINE_AA);
+                        cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
         }
     }
 
-    // Left column
+    // Exposure (now beside Focus)
+    drawLabelAbove(settingsWindow, r.exposureDropdownBox, "Exposure Mode");
+    cv::rectangle(settingsWindow, r.exposureDropdownBox, {200, 200, 200}, cv::FILLED, cv::LINE_AA);
+    std::string currentExpStr = ws2s(currentExposureMode);
+    auto szExp = cv::getTextSize(currentExpStr, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
+    cv::putText(settingsWindow, currentExpStr,
+                {r.exposureDropdownBox.x + 10, r.exposureDropdownBox.y + (r.exposureDropdownBox.height + szExp.height) / 2},
+                cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
+
+    if (showExposureDropdown)
+    {
+        int totalItems = static_cast<int>(exposureModes.size());
+        int startIdx = exposureDropdownScroll;
+        int endIdx = std::min(startIdx + EXPOSURE_DROPDOWN_VISIBLE, totalItems);
+        int itemX = r.exposureDropdownBox.x;
+        int itemY = r.exposureDropdownBox.y + r.exposureDropdownBox.height + 6;
+        int itemW = r.exposureDropdownBox.width;
+        int itemH = 34;
+        int itemGap = 4;
+
+        for (int visIdx = 0, i = startIdx; i < endIdx; ++i, ++visIdx)
+        {
+            int y = itemY + visIdx * (itemH + itemGap);
+            cv::Rect itemRc(itemX, y, itemW, itemH);
+            cv::rectangle(settingsWindow, itemRc, {220, 220, 220}, cv::FILLED, cv::LINE_AA);
+            std::string s(exposureModes[i].begin(), exposureModes[i].end());
+            auto sz2 = cv::getTextSize(s, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
+            cv::putText(settingsWindow, s,
+                        {itemRc.x + 10, itemRc.y + (itemRc.height + sz2.height) / 2},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
+        }
+
+        int barX = r.exposureDropdownBox.x + r.exposureDropdownBox.width - 16;
+        int barY = itemY;
+        int barW = 12;
+        int barH = (itemH + itemGap) * EXPOSURE_DROPDOWN_VISIBLE - itemGap;
+        cv::rectangle(settingsWindow, cv::Rect(barX, barY, barW, barH), {180, 180, 180}, cv::FILLED, cv::LINE_AA);
+
+        float thumbFrac = float(EXPOSURE_DROPDOWN_VISIBLE) / totalItems;
+        int thumbH = std::max(int(barH * thumbFrac), 16);
+        int thumbY = barY + int(barH * (float(exposureDropdownScroll) / totalItems));
+        cv::rectangle(settingsWindow, cv::Rect(barX, thumbY, barW, thumbH), {100, 100, 100}, cv::FILLED, cv::LINE_AA);
+    }
+
+    // Shutter
+    drawLabelAbove(settingsWindow, r.shutterDropdownBox, "Shutter Speed");
+    cv::rectangle(settingsWindow, r.shutterDropdownBox, {200, 200, 200}, cv::FILLED, cv::LINE_AA);
+    std::string currentShutterStr = ws2s(currentShutterSpeed);
+    auto szShutter = cv::getTextSize(currentShutterStr, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
+    cv::putText(settingsWindow, currentShutterStr,
+                {r.shutterDropdownBox.x + 10, r.shutterDropdownBox.y + (r.shutterDropdownBox.height + szShutter.height) / 2},
+                cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
+
+    if (showShutterDropdown)
+    {
+        int totalItems = static_cast<int>(shutterSpeeds.size());
+        int startIdx = shutterDropdownScroll;
+        int endIdx = std::min(startIdx + SHUTTER_DROPDOWN_VISIBLE, totalItems);
+
+        int itemX = r.shutterDropdownBox.x;
+        int itemY = r.shutterDropdownBox.y + r.shutterDropdownBox.height + 6;
+        int itemW = r.shutterDropdownBox.width;
+        int itemH = 30;
+        int itemGap = 4;
+
+        for (int visIdx = 0, i = startIdx; i < endIdx; ++i, ++visIdx)
+        {
+            int y = itemY + visIdx * (itemH + itemGap);
+            cv::Rect itemRc(itemX, y, itemW, itemH);
+            cv::rectangle(settingsWindow, itemRc, {220, 220, 220}, cv::FILLED, cv::LINE_AA);
+            std::string s(shutterSpeeds[i].begin(), shutterSpeeds[i].end());
+            auto sz2 = cv::getTextSize(s, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
+            cv::putText(settingsWindow, s,
+                        {itemRc.x + 10, itemRc.y + (itemRc.height + sz2.height) / 2},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
+        }
+
+        int barX = r.shutterDropdownBox.x + r.shutterDropdownBox.width - 16;
+        int barY = itemY;
+        int barW = 12;
+        int barH = (itemH + itemGap) * SHUTTER_DROPDOWN_VISIBLE - itemGap;
+        cv::rectangle(settingsWindow, cv::Rect(barX, barY, barW, barH), {180, 180, 180}, cv::FILLED, cv::LINE_AA);
+
+        float thumbFrac = float(SHUTTER_DROPDOWN_VISIBLE) / totalItems;
+        int thumbH = std::max(int(barH * thumbFrac), 16);
+        int thumbY = barY + int(barH * (float(shutterDropdownScroll) / totalItems));
+        cv::rectangle(settingsWindow, cv::Rect(barX, thumbY, barW, thumbH), {100, 100, 100}, cv::FILLED, cv::LINE_AA);
+    }
+
+    // Aperture
+    drawLabelAbove(settingsWindow, r.apertureDropdownBox, "Aperture");
+    cv::rectangle(settingsWindow, r.apertureDropdownBox, {200, 200, 200}, cv::FILLED, cv::LINE_AA);
+    std::string currentAperStr = ws2s(currentAperture);
+    auto szAper = cv::getTextSize(currentAperStr, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
+    cv::putText(settingsWindow, currentAperStr,
+                {r.apertureDropdownBox.x + 10, r.apertureDropdownBox.y + (r.apertureDropdownBox.height + szAper.height) / 2},
+                cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
+
+    if (showApertureDropdown)
+    {
+        int totalItems = static_cast<int>(apertureValues.size());
+        int startIdx = apertureDropdownScroll;
+        int endIdx = std::min(startIdx + APERTURE_DROPDOWN_VISIBLE, totalItems);
+
+        int itemX = r.apertureDropdownBox.x;
+        int itemY = r.apertureDropdownBox.y + r.apertureDropdownBox.height + 6;
+        int itemW = r.apertureDropdownBox.width;
+        int itemH = 30;
+        int itemGap = 4;
+
+        for (int visIdx = 0, i = startIdx; i < endIdx; ++i, ++visIdx)
+        {
+            int y = itemY + visIdx * (itemH + itemGap);
+            cv::Rect itemRc(itemX, y, itemW, itemH);
+            cv::rectangle(settingsWindow, itemRc, {220, 220, 220}, cv::FILLED, cv::LINE_AA);
+            std::string s(apertureValues[i].begin(), apertureValues[i].end());
+            auto sz2 = cv::getTextSize(s, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
+            cv::putText(settingsWindow, s,
+                        {itemRc.x + 10, itemRc.y + (itemRc.height + sz2.height) / 2},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
+        }
+
+        int barX = r.apertureDropdownBox.x + r.apertureDropdownBox.width - 16;
+        int barY = itemY;
+        int barW = 12;
+        int barH = (itemH + itemGap) * APERTURE_DROPDOWN_VISIBLE - itemGap;
+        cv::rectangle(settingsWindow, cv::Rect(barX, barY, barW, barH), {180, 180, 180}, cv::FILLED, cv::LINE_AA);
+
+        float thumbFrac = float(APERTURE_DROPDOWN_VISIBLE) / totalItems;
+        int thumbH = std::max(int(barH * thumbFrac), 16);
+        int thumbY = barY + int(barH * (float(apertureDropdownScroll) / totalItems));
+        cv::rectangle(settingsWindow, cv::Rect(barX, thumbY, barW, thumbH), {100, 100, 100}, cv::FILLED, cv::LINE_AA);
+    }
+
+    // ISO
+    drawLabelAbove(settingsWindow, r.isoDropdownBox, "ISO");
+    cv::rectangle(settingsWindow, r.isoDropdownBox, {200, 200, 200}, cv::FILLED, cv::LINE_AA);
+    std::string currentISOStr = ws2s(currentISO);
+    auto szISO = cv::getTextSize(currentISOStr, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
+    cv::putText(settingsWindow, currentISOStr,
+                {r.isoDropdownBox.x + 10, r.isoDropdownBox.y + (r.isoDropdownBox.height + szISO.height) / 2},
+                cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
+
+    if (showISODropdown)
+    {
+        int totalItems = static_cast<int>(isoValues.size());
+        int startIdx = isoDropdownScroll;
+        int endIdx = std::min(startIdx + ISO_DROPDOWN_VISIBLE, totalItems);
+
+        int itemX = r.isoDropdownBox.x;
+        int itemY = r.isoDropdownBox.y + r.isoDropdownBox.height + 6;
+        int itemW = r.isoDropdownBox.width;
+        int itemH = 30;
+        int itemGap = 4;
+
+        for (int visIdx = 0, i = startIdx; i < endIdx; ++i, ++visIdx)
+        {
+            int y = itemY + visIdx * (itemH + itemGap);
+            cv::Rect itemRc(itemX, y, itemW, itemH);
+            cv::rectangle(settingsWindow, itemRc, {220, 220, 220}, cv::FILLED, cv::LINE_AA);
+            std::string s(isoValues[i].begin(), isoValues[i].end());
+            auto sz2 = cv::getTextSize(s, cv::FONT_HERSHEY_SIMPLEX, 0.95, 2, &baseline);
+            cv::putText(settingsWindow, s,
+                        {itemRc.x + 10, itemRc.y + (itemRc.height + sz2.height) / 2},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.95, {0, 0, 0}, 2, cv::LINE_AA);
+        }
+
+        int barX = r.isoDropdownBox.x + r.isoDropdownBox.width - 16;
+        int barY = itemY;
+        int barW = 12;
+        int barH = (itemH + itemGap) * ISO_DROPDOWN_VISIBLE - itemGap;
+        cv::rectangle(settingsWindow, cv::Rect(barX, barY, barW, barH), {180, 180, 180}, cv::FILLED, cv::LINE_AA);
+
+        float thumbFrac = float(ISO_DROPDOWN_VISIBLE) / totalItems;
+        int thumbH = std::max(int(barH * thumbFrac), 16);
+        int thumbY = barY + int(barH * (float(isoDropdownScroll) / totalItems));
+        cv::rectangle(settingsWindow, cv::Rect(barX, thumbY, barW, thumbH), {100, 100, 100}, cv::FILLED, cv::LINE_AA);
+    }
+
+    // Buttons + misc
     drawButton(settingsWindow, r.btnFocus, "Focus", {180, 180, 180});
     drawButton(settingsWindow, r.btnCapture, "Capture", {180, 180, 180});
     drawButton(settingsWindow, r.btnAutoCapture, "Auto Capture",
                autoCaptureFlag.load() ? cv::Scalar(100, 250, 100) : cv::Scalar(180, 180, 180));
 
-    // Right column buttons
-    drawButton(settingsWindow, r.btnExposureMode, "Exposure Mode", {180, 180, 180});
-    drawButton(settingsWindow, r.btnShutterSpeed, "Shutter Speed", {180, 180, 180});
-    drawButton(settingsWindow, r.btnAperture, "Aperture", {180, 180, 180});
-    drawButton(settingsWindow, r.btnISO, "ISO", {180, 180, 180});
-    drawButton(settingsWindow, r.btnResetLiveView, "Reset LiveView", {180, 180, 255}, {0, 0, 80});
-
-    // Read-only value boxes (to the right)
-    drawValueBoxRight(settingsWindow, r.valExposureMode, "Exposure Mode", ws2s(currentExposureMode));
-    drawValueBoxRight(settingsWindow, r.valShutterSpeed, "Shutter Speed", ws2s(currentShutterSpeed));
-    drawValueBoxRight(settingsWindow, r.valAperture, "Aperture", ws2s(currentAperture));
-    drawValueBoxRight(settingsWindow, r.valISO, "ISO", ws2s(currentISO));
-
-    // Interval input box
     drawInputBox(settingsWindow, r.intervalBox, intervalBuf, editingInterval);
-
-    // Bottom grid buttons (green)
-    drawButton(settingsWindow, r.btnFormat, "Format", {200, 220, 200});
-    drawButton(settingsWindow, r.btnType, "Type", {200, 220, 200});
-    drawButton(settingsWindow, r.btnQuality, "Quality", {200, 220, 200});
-    drawButton(settingsWindow, r.btnSize, "Size", {200, 220, 200});
-    drawButton(settingsWindow, r.btnWhiteBalance, "W/B Mode", {200, 220, 200});
-    drawButton(settingsWindow, r.btnWhiteFocusValue, "W/B Value", {200, 220, 200});
-    drawButton(settingsWindow, r.btnFocusArea, "Focus Area", {200, 220, 200});
-
-    // NEW: values UNDER each green button
-    drawUnderValueBox(settingsWindow, r.valFormat, ws2s(currentFormat));
-    drawUnderValueBox(settingsWindow, r.valType, ws2s(currentType));
-    drawUnderValueBox(settingsWindow, r.valQuality, ws2s(currentQuality));
-    drawUnderValueBox(settingsWindow, r.valSize, ws2s(currentSize));
-    drawUnderValueBox(settingsWindow, r.valWhiteBalance, ws2s(currentWBMode));
-    drawUnderValueBox(settingsWindow, r.valWhiteFocusValue, ws2s(currentWBValue));
-    drawUnderValueBox(settingsWindow, r.valFocusArea, ws2s(currentFocusArea));
-
-    // Exit + Open Latest
     drawButton(settingsWindow, r.btnOpenLatest, "Open Latest", {100, 180, 250}, {255, 255, 255});
     drawButton(settingsWindow, r.btnExit, "Exit", {50, 50, 50}, {255, 255, 255});
 }
@@ -350,15 +464,12 @@ static std::string findLatestDSCImage(const std::string &folder)
 {
     std::string latestFile;
     std::time_t latestTime = 0;
-
     for (const auto &entry : fs::directory_iterator(folder))
     {
         if (!entry.is_regular_file())
             continue;
         std::string name = entry.path().filename().string();
         std::string lower = toLower(name);
-
-        // Match DSCxxxxx.jpg or DSCxxxxx.JPG (5+ digits, extension case-insensitive)
         if (lower.rfind("dsc", 0) == 0 && lower.size() >= 8 &&
             lower.substr(lower.size() - 4) == ".jpg")
         {
@@ -382,9 +493,9 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
                       std::atomic<bool> &autoCaptureFlag)
 {
     CallbackContext context{camera, &exitFlag, &autoCaptureFlag};
-
     std::thread autoCaptureThread([&]()
                                   {
+
         while (!exitFlag)
         {
             if (autoCaptureFlag.load())
@@ -395,8 +506,6 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
                 auto end = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> duration_ms = end - start;
                 std::cout << "Execution time: " << duration_ms.count() << " ms\n";
-
-                // Use user-set interval (clamp to >=0)
                 int ms = std::max(0, autoIntervalMs.load());
                 std::this_thread::sleep_for(std::chrono::milliseconds(ms));
             }
@@ -406,58 +515,48 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
             }
         } });
 
-    cv::namedWindow("Live View", cv::WINDOW_NORMAL);
-
-    // Control Centre window
+    // Live View window removed. Only Control Centre remains.
     cv::namedWindow("Control Centre", cv::WINDOW_NORMAL);
     cv::resizeWindow("Control Centre", CC_WIDTH, CC_HEIGHT);
 
     while (!exitFlag)
     {
+        // Refresh camera state when not actively auto-capturing
         if (!autoCaptureFlag.load())
         {
-            camera->get_live_view();
-            cv::Mat img = cv::imread("LiveView000000.jpg");
-            if (!img.empty())
-            {
-                cv::resize(img, img, cv::Size(1064, 680));
-                cv::imshow("Live View", img);
-            }
-
-            // Refresh current values from camera (wstring outputs)
+            // camera->get_live_view(); // REMOVED
             currentFocusMode = camera->get_focus_mode_output();
-
-            // Top-right values
-            currentExposureMode = camera->get_exposure_program_mode_output(); // implement in CameraDevice
+            currentExposureMode = camera->get_exposure_program_mode_output();
             currentShutterSpeed = camera->get_shutter_speed_output();
             currentAperture = camera->get_aperture_output();
             currentISO = camera->get_iso_output();
-
-            // Bottom (green) values UNDER each button
-            // currentFormat        = camera->get_format_output();
-            // currentType          = camera->get_type_output();
-            // currentQuality       = camera->get_quality_output();
-            // currentSize          = camera->get_size_output();
-            currentWBMode = camera->get_white_balance_output();
-            // currentWBValue       = camera->get_white_balance_value_output();
-            currentFocusArea = camera->get_focus_area_output();
         }
 
-        cv::Mat settingsWindow(CC_HEIGHT, CC_WIDTH, CV_8UC3, cv::Scalar(240, 240, 240));
+        // Load the background image
+        cv::Mat bg = cv::imread("cris_logo.png");
+
+        // Create the settings window
+        cv::Mat settingsWindow(CC_HEIGHT, CC_WIDTH, CV_8UC3);
+
+        // If background loads successfully, resize and use it
+        if (!bg.empty())
+        {
+            cv::resize(bg, bg, settingsWindow.size());
+            bg.copyTo(settingsWindow);
+        }
+        else
+        {
+            // Fallback color if image not found
+            settingsWindow = cv::Scalar(240, 240, 240);
+        }
+
+        // Draw UI on top of the background
         auto layout = makeLayout();
         drawControlCentreUI(settingsWindow, autoCaptureFlag, layout);
 
         cv::setMouseCallback("Control Centre", onMouse, &context);
         cv::imshow("Control Centre", settingsWindow);
 
-        cv::Rect winRect = cv::getWindowImageRect("Live View");
-        if (winRect.width > 0 && winRect.height > 0)
-        {
-            liveViewWidth = winRect.width;
-            liveViewHeight = winRect.height;
-        }
-
-        // Keyboard handling (interval input + exit)
         int key = cv::waitKey(30);
         if (editingInterval)
         {
@@ -468,12 +567,12 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
                     intervalBuf.push_back(static_cast<char>(k));
             }
             else if (k == 8 || k == 127)
-            { // Backspace/Delete
+            {
                 if (!intervalBuf.empty())
                     intervalBuf.pop_back();
             }
             else if (k == 13 || k == 10)
-            { // Enter
+            {
                 int v = 0;
                 try
                 {
@@ -483,20 +582,20 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
                 {
                     v = 0;
                 }
-                v = std::max(0, std::min(v, 600000)); // 0 .. 10 minutes
+                v = std::max(0, std::min(v, 600000));
                 autoIntervalMs.store(v);
                 editingInterval = false;
                 std::cout << "[Auto Capture] Interval set to " << v << " ms\n";
             }
             else if (k == 27)
-            { // ESC cancels editing
+            {
                 editingInterval = false;
             }
         }
         else
         {
             if ((key & 0xFF) == 27)
-            { // ESC exits when not editing
+            {
                 exitFlag = true;
             }
         }
@@ -511,20 +610,62 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
 // ------------------- Mouse Handling -------------------
 static bool pointIn(const cv::Point &p, const cv::Rect &r) { return r.contains(p); }
 
-void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
+void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
 {
-    if (event != cv::EVENT_LBUTTONDOWN)
-        return;
-
     auto *context = static_cast<CallbackContext *>(userdata);
     auto camera = context->camera;
     auto exitFlag = context->exitFlag;
     auto autoCaptureFlag = context->autoCaptureFlag;
 
-    const auto r = makeLayout(); // same geometry as draw
+    const auto r = makeLayout();
     const cv::Point pt{x, y};
 
-    // Focus interval input if clicked
+    // Scroll handlers
+    if (showShutterDropdown && (event == cv::EVENT_MOUSEWHEEL || event == cv::EVENT_MOUSEHWHEEL))
+    {
+        int totalItems = static_cast<int>(shutterSpeeds.size());
+        int delta = cv::getMouseWheelDelta(flags);
+        if (delta > 0)
+            shutterDropdownScroll = std::max(0, shutterDropdownScroll - 1);
+        else if (delta < 0)
+            shutterDropdownScroll = std::min(std::max(0, totalItems - SHUTTER_DROPDOWN_VISIBLE), shutterDropdownScroll + 1);
+        return;
+    }
+    if (showApertureDropdown && (event == cv::EVENT_MOUSEWHEEL || event == cv::EVENT_MOUSEHWHEEL))
+    {
+        int totalItems = static_cast<int>(apertureValues.size());
+        int delta = cv::getMouseWheelDelta(flags);
+        if (delta > 0)
+            apertureDropdownScroll = std::max(0, apertureDropdownScroll - 1);
+        else if (delta < 0)
+            apertureDropdownScroll = std::min(std::max(0, totalItems - APERTURE_DROPDOWN_VISIBLE), apertureDropdownScroll + 1);
+        return;
+    }
+    if (showISODropdown && (event == cv::EVENT_MOUSEWHEEL || event == cv::EVENT_MOUSEHWHEEL))
+    {
+        int totalItems = static_cast<int>(isoValues.size());
+        int delta = cv::getMouseWheelDelta(flags);
+        if (delta > 0)
+            isoDropdownScroll = std::max(0, isoDropdownScroll - 1);
+        else if (delta < 0)
+            isoDropdownScroll = std::min(std::max(0, totalItems - ISO_DROPDOWN_VISIBLE), isoDropdownScroll + 1);
+        return;
+    }
+    if (showExposureDropdown && (event == cv::EVENT_MOUSEWHEEL || event == cv::EVENT_MOUSEHWHEEL))
+    {
+        int totalItems = static_cast<int>(exposureModes.size());
+        int delta = cv::getMouseWheelDelta(flags);
+        if (delta > 0)
+            exposureDropdownScroll = std::max(0, exposureDropdownScroll - 1);
+        else if (delta < 0)
+            exposureDropdownScroll = std::min(std::max(0, totalItems - EXPOSURE_DROPDOWN_VISIBLE), exposureDropdownScroll + 1);
+        return;
+    }
+
+    if (event != cv::EVENT_LBUTTONDOWN)
+        return;
+
+    // Interval edit
     if (pointIn(pt, r.intervalBox))
     {
         editingInterval = true;
@@ -535,14 +676,20 @@ void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
         editingInterval = false;
     }
 
-    // Dropdown toggle
+    // Focus dropdown toggle
     if (pointIn(pt, r.dropdownBox))
     {
         showDropdown = !showDropdown;
+        if (showDropdown)
+        {
+            showShutterDropdown = false;
+            showApertureDropdown = false;
+            showISODropdown = false;
+            showExposureDropdown = false;
+        }
         return;
     }
 
-    // Dropdown item clicks
     if (showDropdown)
     {
         for (size_t i = 0; i < r.dropdownItems.size(); ++i)
@@ -559,7 +706,207 @@ void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
         }
     }
 
-    // Left column
+    // Exposure dropdown toggle
+    if (pointIn(pt, r.exposureDropdownBox))
+    {
+        showExposureDropdown = !showExposureDropdown;
+        if (showExposureDropdown)
+        {
+            showDropdown = false;
+            showShutterDropdown = false;
+            showApertureDropdown = false;
+            showISODropdown = false;
+        }
+        return;
+    }
+
+    if (showExposureDropdown)
+    {
+        int totalItems = static_cast<int>(exposureModes.size());
+        int startIdx = exposureDropdownScroll;
+        int endIdx = std::min(startIdx + EXPOSURE_DROPDOWN_VISIBLE, totalItems);
+
+        int itemX = r.exposureDropdownBox.x;
+        int itemY = r.exposureDropdownBox.y + r.exposureDropdownBox.height + 6;
+        int itemW = r.exposureDropdownBox.width;
+        int itemH = 34;
+        int itemGap = 4;
+
+        int barX = r.exposureDropdownBox.x + r.exposureDropdownBox.width - 16;
+        int barY = itemY;
+        int barW = 12;
+        int barH = (itemH + itemGap) * EXPOSURE_DROPDOWN_VISIBLE - itemGap;
+        cv::Rect scrollbarRect(barX, barY, barW, barH);
+        if (pointIn(pt, scrollbarRect))
+            return;
+
+        for (int visIdx = 0, i = startIdx; i < endIdx; ++i, ++visIdx)
+        {
+            int y = itemY + visIdx * (itemH + itemGap);
+            cv::Rect itemRc(itemX, y, itemW, itemH);
+            if (pointIn(pt, itemRc))
+            {
+                currentExposureProgramMode = exposureModes[i];
+                camera->set_exposure_program_mode_new(currentExposureProgramMode, i);
+                showExposureDropdown = false;
+                std::string s(currentExposureProgramMode.begin(), currentExposureProgramMode.end());
+                std::cout << "[Exposure Mode] Set to: " << s << "\n";
+                return;
+            }
+        }
+    }
+
+    // Shutter dropdown toggle
+    if (pointIn(pt, r.shutterDropdownBox))
+    {
+        showShutterDropdown = !showShutterDropdown;
+        if (showShutterDropdown)
+        {
+            showDropdown = false;
+            showApertureDropdown = false;
+            showISODropdown = false;
+            showExposureDropdown = false;
+        }
+        return;
+    }
+
+    if (showShutterDropdown)
+    {
+        int totalItems = static_cast<int>(shutterSpeeds.size());
+        int startIdx = shutterDropdownScroll;
+        int endIdx = std::min(startIdx + SHUTTER_DROPDOWN_VISIBLE, totalItems);
+
+        int itemX = r.shutterDropdownBox.x;
+        int itemY = r.shutterDropdownBox.y + r.shutterDropdownBox.height + 6;
+        int itemW = r.shutterDropdownBox.width;
+        int itemH = 30;
+        int itemGap = 4;
+
+        int barX = r.shutterDropdownBox.x + r.shutterDropdownBox.width - 16;
+        int barY = itemY;
+        int barW = 12;
+        int barH = (itemH + itemGap) * SHUTTER_DROPDOWN_VISIBLE - itemGap;
+        cv::Rect scrollbarRect(barX, barY, barW, barH);
+        if (pointIn(pt, scrollbarRect))
+            return;
+
+        for (int visIdx = 0, i = startIdx; i < endIdx; ++i, ++visIdx)
+        {
+            int y = itemY + visIdx * (itemH + itemGap);
+            cv::Rect itemRc(itemX, y, itemW, itemH);
+            if (pointIn(pt, itemRc))
+            {
+                currentShutterSpeedMode = shutterSpeeds[i];
+                camera->set_shutter_speed_new(currentShutterSpeedMode, i);
+                showShutterDropdown = false;
+                std::string s(currentShutterSpeedMode.begin(), currentShutterSpeedMode.end());
+                std::cout << "[Shutter Speed] Set to: " << s << "\n";
+                return;
+            }
+        }
+    }
+
+    // Aperture dropdown toggle
+    if (pointIn(pt, r.apertureDropdownBox))
+    {
+        showApertureDropdown = !showApertureDropdown;
+        if (showApertureDropdown)
+        {
+            showDropdown = false;
+            showShutterDropdown = false;
+            showISODropdown = false;
+            showExposureDropdown = false;
+        }
+        return;
+    }
+
+    if (showApertureDropdown)
+    {
+        int totalItems = static_cast<int>(apertureValues.size());
+        int startIdx = apertureDropdownScroll;
+        int endIdx = std::min(startIdx + APERTURE_DROPDOWN_VISIBLE, totalItems);
+
+        int itemX = r.apertureDropdownBox.x;
+        int itemY = r.apertureDropdownBox.y + r.apertureDropdownBox.height + 6;
+        int itemW = r.apertureDropdownBox.width;
+        int itemH = 30;
+        int itemGap = 4;
+
+        int barX = r.apertureDropdownBox.x + r.apertureDropdownBox.width - 16;
+        int barY = itemY;
+        int barW = 12;
+        int barH = (itemH + itemGap) * APERTURE_DROPDOWN_VISIBLE - itemGap;
+        cv::Rect scrollbarRect(barX, barY, barW, barH);
+        if (pointIn(pt, scrollbarRect))
+            return;
+
+        for (int visIdx = 0, i = startIdx; i < endIdx; ++i, ++visIdx)
+        {
+            int y = itemY + visIdx * (itemH + itemGap);
+            cv::Rect itemRc(itemX, y, itemW, itemH);
+            if (pointIn(pt, itemRc))
+            {
+                currentApertureMode = apertureValues[i];
+                camera->set_aperture_new(currentApertureMode, i);
+                showApertureDropdown = false;
+                std::string s(currentApertureMode.begin(), currentApertureMode.end());
+                std::cout << "[Aperture] Set to: " << s << "\n";
+                return;
+            }
+        }
+    }
+
+    // ISO dropdown toggle
+    if (pointIn(pt, r.isoDropdownBox))
+    {
+        showISODropdown = !showISODropdown;
+        if (showISODropdown)
+        {
+            showDropdown = false;
+            showShutterDropdown = false;
+            showApertureDropdown = false;
+            showExposureDropdown = false;
+        }
+        return;
+    }
+
+    if (showISODropdown)
+    {
+        int totalItems = static_cast<int>(isoValues.size());
+        int startIdx = isoDropdownScroll;
+        int endIdx = std::min(startIdx + ISO_DROPDOWN_VISIBLE, totalItems);
+
+        int itemX = r.isoDropdownBox.x;
+        int itemY = r.isoDropdownBox.y + r.isoDropdownBox.height + 6;
+        int itemW = r.isoDropdownBox.width;
+        int itemH = 30;
+        int itemGap = 4;
+
+        int barX = r.isoDropdownBox.x + r.isoDropdownBox.width - 16;
+        int barY = itemY;
+        int barW = 12;
+        int barH = (itemH + itemGap) * ISO_DROPDOWN_VISIBLE - itemGap;
+        cv::Rect scrollbarRect(barX, barY, barW, barH);
+        if (pointIn(pt, scrollbarRect))
+            return;
+
+        for (int visIdx = 0, i = startIdx; i < endIdx; ++i, ++visIdx)
+        {
+            int y = itemY + visIdx * (itemH + itemGap);
+            cv::Rect itemRc(itemX, y, itemW, itemH);
+            if (pointIn(pt, itemRc))
+            {
+                currentISOMode = isoValues[i];
+                camera->set_iso_new(currentISOMode, i);
+                showISODropdown = false;
+                std::string s(currentISOMode.begin(), currentISOMode.end());
+                std::cout << "[ISO] Set to: " << s << "\n";
+                return;
+            }
+        }
+    }
+
+    // Buttons
     if (pointIn(pt, r.btnFocus))
     {
         std::cout << "[Focus] clicked\n";
@@ -582,93 +929,6 @@ void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
         std::cout << "[Auto Capture] toggled to: " << (*autoCaptureFlag ? "ON" : "OFF") << "\n";
         return;
     }
-
-    // Right column buttons
-    if (pointIn(pt, r.btnExposureMode))
-    {
-        std::cout << "[Exposure Mode] clicked\n";
-        camera->get_exposure_program_mode();
-        camera->set_exposure_program_mode();
-        return;
-    }
-    if (pointIn(pt, r.btnShutterSpeed))
-    {
-        std::cout << "[Shutter Speed] clicked\n";
-        camera->get_shutter_speed();
-        camera->set_shutter_speed();
-        return;
-    }
-    if (pointIn(pt, r.btnAperture))
-    {
-        std::cout << "[Aperture] clicked\n";
-        camera->get_aperture();
-        camera->set_aperture();
-        return;
-    }
-    if (pointIn(pt, r.btnISO))
-    {
-        std::cout << "[ISO] clicked\n";
-        camera->get_iso();
-        camera->set_iso();
-        return;
-    }
-    if (pointIn(pt, r.btnResetLiveView))
-    {
-        std::cout << "[Reset LiveView] clicked\n";
-        liveViewWidth = 1064;
-        liveViewHeight = 680;
-        cv::resizeWindow("Live View", liveViewWidth, liveViewHeight);
-        return;
-    }
-
-    // Bottom grid (buttons only; values are display-only)
-    if (pointIn(pt, r.btnFormat))
-    {
-        std::cout << "[Format] clicked\n";
-        // camera->set_format();
-        return;
-    }
-    if (pointIn(pt, r.btnType))
-    {
-        std::cout << "[Type] clicked\n";
-        // camera->set_type();
-        return;
-    }
-    if (pointIn(pt, r.btnQuality))
-    {
-        std::cout << "[Quality] clicked\n";
-        // camera->set_quality();
-        return;
-    }
-    if (pointIn(pt, r.btnSize))
-    {
-        std::cout << "[Size] clicked\n";
-        // camera->set_size();
-        return;
-    }
-    if (pointIn(pt, r.btnWhiteBalance))
-    {
-        std::cout << "[W/B Mode] clicked\n";
-        camera->set_white_balance();
-        return;
-    }
-    if (pointIn(pt, r.btnWhiteFocusValue))
-    {
-        std::cout << "[W/B Value] clicked\n";
-        // camera->set_white_focus_value();
-        return;
-    }
-    if (pointIn(pt, r.btnFocusArea))
-    {
-        std::cout << "[Focus Area] clicked\n";
-        // camera->set_focus_area();
-        return;
-    }
-
-#include <windows.h>
-
-    // ...
-
     if (pointIn(pt, r.btnOpenLatest))
     {
         std::cout << "[Open Latest] clicked\n";
@@ -685,8 +945,6 @@ void ViewImage::onMouse(int event, int x, int y, int, void *userdata)
         }
         return;
     }
-
-    // Exit
     if (pointIn(pt, r.btnExit))
     {
         std::cout << "[Exit] clicked\n";

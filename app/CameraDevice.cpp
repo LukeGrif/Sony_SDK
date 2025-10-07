@@ -284,14 +284,14 @@ namespace cli
 
     void CameraDevice::s1_shooting() const
     {
-        text input;
-        tout << "Is the focus mode set to AF? (y/n): ";
-        std::getline(tin, input);
-        if (input != TEXT("y"))
-        {
-            tout << "Set the focus mode to AF\n";
-            return;
-        }
+        // text input;
+        // tout << "Is the focus mode set to AF? (y/n): ";
+        // std::getline(tin, input);
+        // if (input != TEXT("y"))
+        // {
+        //     tout << "Set the focus mode to AF\n";
+        //     return;
+        // }
 
         tout << "S1 shooting...\n";
         tout << "Shutter Half Press down\n";
@@ -1755,6 +1755,33 @@ namespace cli
         SDK::SetDeviceProperty(m_device_handle, &prop);
     }
 
+    void CameraDevice::set_aperture_new(const std::wstring &label, int index)
+    {
+        if (1 != m_prop.f_number.writable)
+        {
+            tout << "Apperture is not writable\n";
+            return;
+        }
+
+        auto &values = m_prop.f_number.possible;
+
+        if (index < 0 || static_cast<std::size_t>(index) >= values.size())
+        {
+            tout << "Invalid Apperture index: " << index << '\n';
+            return;
+        }
+
+        tout << "Setting Apperture to [" << index << "] " << format_f_number(values[index]) << '\n';
+
+
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FNumber);
+        prop.SetCurrentValue(values[index]);
+        prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+
+        SDK::SetDeviceProperty(m_device_handle, &prop);
+    }
+
     void CameraDevice::set_iso()
     {
         if (1 != m_prop.iso_sensitivity.writable)
@@ -1800,6 +1827,33 @@ namespace cli
         SDK::CrDeviceProperty prop;
         prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity);
         prop.SetCurrentValue(values[selected_index]);
+        prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
+
+        SDK::SetDeviceProperty(m_device_handle, &prop);
+    }
+
+    void CameraDevice::set_iso_new(const std::wstring &label, int index)
+    {
+        if (1 != m_prop.iso_sensitivity.writable)
+        {
+            tout << "ISO is not writable\n";
+            return;
+        }
+
+        auto &values = m_prop.iso_sensitivity.possible;
+
+        if (index < 0 || static_cast<std::size_t>(index) >= values.size())
+        {
+            tout << "Invalid ISO index: " << index << '\n';
+            return;
+        }
+
+        tout << "Setting ISO to [" << index << "] " << format_iso_sensitivity(values[index]) << '\n';
+
+
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_IsoSensitivity);
+        prop.SetCurrentValue(values[index]);
         prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
 
         SDK::SetDeviceProperty(m_device_handle, &prop);
@@ -1875,6 +1929,33 @@ namespace cli
         SDK::CrDeviceProperty prop;
         prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ShutterSpeed);
         prop.SetCurrentValue(values[selected_index]);
+        prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
+
+        SDK::SetDeviceProperty(m_device_handle, &prop);
+    }
+
+    void CameraDevice::set_shutter_speed_new(const std::wstring &label, int index)
+    {
+        if (1 != m_prop.shutter_speed.writable)
+        {
+            tout << "Shutter Speed is not writable\n";
+            return;
+        }
+
+        auto &values = m_prop.shutter_speed.possible;
+
+        if (index < 0 || static_cast<std::size_t>(index) >= values.size())
+        {
+            tout << "Invalid shutter speed index: " << index << '\n';
+            return;
+        }
+
+        tout << "Setting Shutter Speed to [" << index << "] " << format_shutter_speed(values[index]) << '\n';
+
+
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ShutterSpeed);
+        prop.SetCurrentValue(values[index]);
         prop.SetValueType(SDK::CrDataType::CrDataType_UInt32Array);
 
         SDK::SetDeviceProperty(m_device_handle, &prop);
@@ -2028,6 +2109,32 @@ namespace cli
         SDK::CrDeviceProperty prop;
         prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ExposureProgramMode);
         prop.SetCurrentValue(values[selected_index]);
+        prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+
+        SDK::SetDeviceProperty(m_device_handle, &prop);
+    }
+
+    void CameraDevice::set_exposure_program_mode_new(const std::wstring &label, int index)
+    {
+        if (1 != m_prop.exposure_program_mode.writable)
+        {
+            tout << "Exposure Mode is not writable\n";
+            return;
+        }
+
+        auto &values = m_prop.exposure_program_mode.possible;
+
+        if (index < 0 || static_cast<std::size_t>(index) >= values.size())
+        {
+            tout << "Invalid exposure mode index: " << index << '\n';
+            return;
+        }
+
+        tout << "Setting Exposure Mode to [" << index << "] " << format_exposure_program_mode(values[index]) << '\n';
+
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_ExposureProgramMode);
+        prop.SetCurrentValue(values[index]);
         prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
 
         SDK::SetDeviceProperty(m_device_handle, &prop);

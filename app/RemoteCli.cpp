@@ -14,14 +14,12 @@
 #include "CameraDevice.h"
 #include "Text.h"
 #include "ViewImage.h"
-
-
-
+#include <filesystem>
 
 namespace SDK = SCRSDK;
 typedef std::shared_ptr<cli::CameraDevice> CameraDevicePtr;
 
-int main()
+int main(int argc, char *argv[])
 {
     std::locale::global(std::locale(""));
     cli::tin.imbue(std::locale());
@@ -65,9 +63,30 @@ int main()
     std::atomic<bool> exitFlag{false};
     std::atomic<bool> autoCaptureFlag{false};
 
-    ViewImage viewer;
-    viewer.runUI(camera, exitFlag, autoCaptureFlag);
-
+    // Argument handling
+    if (argc >= 2 && std::string(argv[1]) == "1")
+    {
+        ViewImage viewer;
+        viewer.runUI(camera, exitFlag, autoCaptureFlag);
+    }
+    else
+    {
+        bool exitLoop = false;
+        while (!exitLoop)
+        {
+            camera->get_live_view();
+            // Check for stop signal
+            std::string stopFile = "C:/Users/Luke Griffin/OneDrive/Desktop/Sony_SDK/build/Release/stop.txt";
+            if (std::filesystem::exists(stopFile))
+            {
+                std::error_code ec;
+                std::filesystem::remove(stopFile, ec);
+                exitLoop = true;
+            }
+        }
+    }
+    // Delete stop.txt after exiting loop
+    std::error_code ec;
     SDK::Release();
     return EXIT_SUCCESS;
 }
