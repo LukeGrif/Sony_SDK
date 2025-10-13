@@ -524,7 +524,7 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
         // Refresh camera state when not actively auto-capturing
         if (!autoCaptureFlag.load())
         {
-            // camera->get_live_view(); // REMOVED
+            camera->get_live_view();
             currentFocusMode = camera->get_focus_mode_output();
             currentExposureMode = camera->get_exposure_program_mode_output();
             currentShutterSpeed = camera->get_shutter_speed_output();

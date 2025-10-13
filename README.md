@@ -1,35 +1,139 @@
-# Sony SDK Camera GUI using OpenCV
+# Sony Camera Control Centre (OpenCV GUI)
 
-A lightweight GUI built using OpenCV for interacting with Sony cameras via the Sony Camera Remote SDK. This GUI allows you to preview the live view, change focus modes via a dropdown, and capture images manually or automatically.
+A lightweight **Control Centre** GUI built with **OpenCV** for managing Sony cameras via your C++ wrapper around the **Sony Camera Remote SDK**. It provides compact dropdowns for **Focus / Exposure / Shutter / Aperture / ISO**, buttons for **Focus**, **Capture**, **Auto Capture**, an editable **auto-capture interval**, and an **Open Latest** helper to open the newest `DSCxxxxx.JPG` from a folder.
 
----
+The design uses a single **"Control Centre"** window rendered with OpenCV primitives—no external UI frameworks. It expects an existing `cli::CameraDevice` interface that exposes getters and setters for Sony camera parameters.
 
-## 📸 Features
-
-- Live View streaming from a connected Sony camera
-- Dropdown menu to select focus modes (`AF_S`, `AF_A`, `AF_C`, `DMF`, `MF`)
-- Manual Focus and Capture buttons
-- Auto Capture toggle
-- Exit button to safely close the application
+![alt text](image-1.png)
 
 ---
 
-## 🖼️ GUI Preview
+## ✨ Features
 
-### Control Centre UI
-
-_Example screenshot of the Control Centre window with dropdown expanded._
-
-![alt text](image.png)
-
-
-_Display of the live image feed from the camera._
-
-### Live View Window
-<!-- ![Live View Screenshot](./images/live_view.png) -->
+- **Camera state readback** (polls when not auto-capturing): focus mode, exposure program mode, shutter, aperture, ISO
+- **Dropdown selectors** for:
+  - Focus: `AF_S`, `AF_A`, `AF_C`, `DMF`, `MF`
+  - Exposure Program Mode: `Auto`, `P_Auto`, `A_AperturePriority`, `S_ShutterSpeedPriority`, `M_Manual`, `Portrait`, `Sports_Action`, `Macro`, `Landscape`, `Sunset`, `Night`
+  - Shutter speeds: `Bulb` through `1/4,000`
+  - Aperture values: `F2.8` to `F22` (list from code)
+  - ISO values: `AUTO` to `102,400` (list from code)
+- **Buttons**: *Focus*, *Capture*, *Auto Capture* (toggle), *Open Latest*, *Exit*
+- **Editable auto-capture interval** (ms) with clamping
+- **Open Latest**: finds and opens newest `DSCxxxxx.JPG` in a folder
+- **Custom background image** support via `cris_logo.png` (optional; falls back to solid color)
 
 ---
+
+## 🧱 Architecture at a Glance
+
+Core entrypoint (from `ViewImage.h/.cpp`):
+
+```cpp
+void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
+                      std::atomic<bool>& exitFlag,
+                      std::atomic<bool>& autoCaptureFlag);
 ```
+
+- Starts a **Control Centre** window (`1080 × 600`)
+- Spawns a background thread that periodically calls `camera->capture_image()` while **Auto Capture** is enabled (sleep = interval ms)
+- In the UI loop (when not auto-capturing) it polls camera for:
+  - `get_live_view()` (refresh/keep-alive)
+  - `get_focus_mode_output()`
+  - `get_exposure_program_mode_output()`
+  - `get_shutter_speed_output()`
+  - `get_aperture_output()`
+  - `get_iso_output()`
+- Mouse handler wires dropdowns & buttons to setters:
+  - `set_focus_mode_new(std::wstring, int)`
+  - `set_exposure_program_mode_new(std::wstring, int)`
+  - `set_shutter_speed_new(std::wstring, int)`
+  - `set_aperture_new(std::wstring, int)`
+  - `set_iso_new(std::wstring, int)`
+  - `s1_shooting()` (Focus), `capture_image()` (Capture)
+
+> You will need a concrete `cli::CameraDevice` adapter that wraps Sony Camera Remote SDK calls and returns human-readable strings for the current settings.
+
+---
+
+## ⚙️ Configuration
+
+Update constants near the top of the file to suit your environment:
+
+```cpp
+// Focus modes
+static std::vector<std::wstring> focusModes = {L"AF_S", L"AF_A", L"AF_C", L"DMF", L"MF"};
+
+// Shutter / Aperture / ISO lists
+// (See arrays in source for full options)
+
+// Open Latest search root (change for your machine)
+std::string folder = "C:\\Users\\<YOU>\\OneDrive\\Desktop\\Sony_SDK\\build\\Release";
+
+// UI dimensions
+static const int CC_WIDTH = 1080;
+static const int CC_HEIGHT = 600;
+```
+
+Optional runtime asset:
+- `cris_logo.png` — if present in CWD, it is resized and used as the background for the Control Centre. Otherwise a light gray background is drawn.
+
+---
+
+## 🖱️ UI & Controls
+
+**Mouse**  
+- **Click** a dropdown field to toggle it (Focus / Exposure / Shutter / Aperture / ISO).  
+- **Scroll** while the dropdown is open to move through longer lists.  
+- **Click** an item to apply setting (and it calls the corresponding `set_*_new()` on your camera).  
+- **Buttons**:
+  - **Focus** → `s1_shooting()`
+  - **Capture** → `capture_image()`
+  - **Auto Capture** → toggles a background capture loop that sleeps for `interval ms`
+  - **Open Latest** → finds newest `DSCxxxxx.JPG` under `folder` and opens it via `ShellExecuteA`
+  - **Exit** → sets `exitFlag = true`
+
+**Interval editing**  
+- Click the **interval box**, then type digits to edit (max length & bounds enforced).  
+- **Enter** to apply, **Esc** to cancel editing.  
+- Validated to `0 … 600000` ms, stored in `autoIntervalMs`.
+
+**Keyboard (global)**  
+- Press **Esc** any time (when not editing interval) to exit the app.
+
+---
+
+## 🔍 How “Open Latest” Works
+
+The helper scans a folder for files whose names match `DSC*.JPG` (case-insensitive) and selects the **most recently modified**. It then launches the default viewer via `ShellExecuteA` on Windows.
+
+```cpp
+std::string latest = findLatestDSCImage(folder);
+if (!latest.empty()) ShellExecuteA(NULL, "open", latest.c_str(), NULL, NULL, SW_SHOWNORMAL);
+```
+
+> Change `folder` to your actual Sony SDK output directory.
+
+---
+
+## 🧰 Requirements
+
+- **Windows** (code includes `<windows.h>` and uses `ShellExecuteA`)
+- **C++17** compiler (MSVC recommended)
+- **CMake** 3.16+ (recommended)
+- **OpenCV** 4.x (built for your compiler toolset)
+- **Sony Camera Remote SDK** (headers/libs; used by your `cli::CameraDevice` wrapper)
+
+Optional:
+- An icon/background PNG named `cris_logo.png` in the working directory
+
+---
+
+## 🏗️ Build (CMake + MSVC)
+
+Example out-of-source build on Windows (x64):
+
+```powershell
+# From the project root
 windows:
     mkdir build
     cd build
@@ -39,54 +143,50 @@ windows:
     ./RemoteCli
 ```
 
-## 🔧 Setup Instructions
 
-### 🔥 1. Firewall Bypass for Visual Studio Code (VSCode)
 
-To allow network communication between the Sony camera and your development environment, you may need to bypass the Windows Firewall for VSCode:
-
-1. Open **Windows Defender Firewall**.
-2. Click on **"Allowed Applications"**.
-3. Click **"Change settings"** (Admin access may be required).
-4. Scroll to find `Visual Studio Code`. If not listed:
-    - Click **"Allow another app..."**
-    - Browse to the path: `C:\Users\<YourUser>\AppData\Local\Programs\Microsoft VS Code\Code.exe`
-6. Click **OK** to save changes.
+> Make sure your `cli::CameraDevice` sources are compiled into the same target or linked as a library and that they can find the Sony SDK headers and libs.
 
 ---
 
-### 🌐 2. Ethernet Port Setup for Static IP Communication
+## ▶️ Run
 
-Your Sony camera communicates over the network using a static IP. To set this up:
+```powershell
+.\build\Release\RemoteCli.exe
+```
 
-1. Open **Control Panel → Network and Sharing Center → Change adapter settings**.
-2. Right-click your Ethernet adapter → **Properties**.
-3. Select **Internet Protocol Version 4 (TCP/IPv4)** → **Properties**.
-4. Choose **"Use the following IP address"** and enter:
-
-   - IP address: 192.168.2.1 (or whatever you have the camera configured to)
-   - Subnet mask: 255.255.255.0
-   - Default gateway: (leave blank)
-
-5. Click **OK**, then close all dialog boxes.
-6. Ensure the camera is connected to this Ethernet port using an Ethernet cable.
-
-> ⚠️ **Important**: This IP must match the expected camera IP (usually `192.168.x.x`).
+- The **Control Centre** window opens.  
+- If `cris_logo.png` is present, it will be used as the background.  
+- Click the dropdowns to change settings.  
+- Use **Auto Capture** to start/stop an automated capture loop (interval in ms).  
+- **Open Latest** tries to open the newest `DSCxxxxx.JPG` from your configured folder.
 
 ---
 
-### 📷 3. Pairing the Camera via Micro HDMI (Optional but Recommended)
+## 🧪 Integration Notes
 
-When you connect the camera navigate to settings oon the ILX and confirm pairing:
-
-1. Connect a **Micro HDMI cable** from the camera to an external monitor.
-2. Turn on the camera.
-3. Ensure the camera is in **PC Remote** mode.
-4. If prompted, accept any pairing request on the camera's screen or navigate to pairing menu.
-5. You should now be able to see the live feed and control menu when RemoteCli is executed.
+- The UI does **not** own camera transport; it just **calls** your `cli::CameraDevice` API.  
+- To keep state fresh, it calls `get_live_view()` in the main loop while **not auto-capturing** (acts as a keep‑alive / refresh).  
+- Make sure your adapter returns stable, human-readable strings for the getters so they render well in the dropdown boxes.
 
 ---
 
+## 🩺 Troubleshooting
+
+**Nothing updates / blank strings**  
+- Ensure your `cli::CameraDevice` implementation successfully queries the Sony SDK, and that the function names in the UI (`get_*_output`) match.
+
+**Dropdown selection does nothing**  
+- Verify the corresponding `set_*_new` method is implemented and connected to the Sony SDK. Check console output for the `[... Set to: ...]` lines.
+
+**Open Latest says “No DSCxxxxx.JPG files found.”**  
+- Point `folder` to the correct output directory for your camera captures.
+
+**Window closes when I press Esc**  
+- That’s expected. Esc closes the app when not editing the interval.
+
+**Background not visible**  
+- Ensure `cris_logo.png` is in the current working directory. Otherwise the UI uses a neutral gray background.
 
 ## copyright notice and disclaimer for OSS
 ### libssh2
