@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
         {
             camera->get_live_view();
             // Check for stop signal
-            std::string stopFile = "C:/Users/Luke Griffin/OneDrive/Desktop/Sony_SDK/build/Release/stop.txt";
+            std::string stopFile = "stop.txt";
             if (std::filesystem::exists(stopFile))
             {
                 std::error_code ec;
