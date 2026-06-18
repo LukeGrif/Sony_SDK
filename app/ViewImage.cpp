@@ -62,6 +62,9 @@ static bool showExposureDropdown = false;
 static int exposureDropdownScroll = 0;
 static const int EXPOSURE_DROPDOWN_VISIBLE = 6;
 
+// Movie recording toggle state
+static std::atomic<bool> movieRecFlag{false};
+
 // Interval input state
 static std::atomic<int> autoIntervalMs{3000};
 static bool editingInterval = false;
@@ -106,6 +109,7 @@ struct UIRects
     cv::Rect btnAutoCapture;
 
     cv::Rect intervalBox;
+    cv::Rect btnMovieRec;
     cv::Rect btnOpenLatest;
     cv::Rect btnExit;
 };
@@ -190,10 +194,11 @@ static UIRects makeLayout()
     int x4 = x3 + btnW + colGap;
     r.btnExit = {x4, y, btnW, btnH};
 
-    // Next row: Auto-capture and interval input
+    // Next row: Auto-capture, interval input, and movie record
     y += btnH + gapY;
     r.btnAutoCapture = {leftX, y, btnW, btnH};
     r.intervalBox = {leftX + btnW + colGap, y, btnW, btnH};
+    r.btnMovieRec = {leftX + (btnW + colGap) * 2, y, btnW, btnH};
 
     return r;
 }
@@ -448,6 +453,9 @@ static void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &auto
                autoCaptureFlag.load() ? cv::Scalar(100, 250, 100) : cv::Scalar(180, 180, 180));
 
     drawInputBox(settingsWindow, r.intervalBox, intervalBuf, editingInterval);
+    drawButton(settingsWindow, r.btnMovieRec, "Record Video",
+               movieRecFlag.load() ? cv::Scalar(0, 0, 220) : cv::Scalar(180, 180, 180),
+               movieRecFlag.load() ? cv::Scalar(255, 255, 255) : cv::Scalar(0, 0, 0));
     drawButton(settingsWindow, r.btnOpenLatest, "Open Latest", {100, 180, 250}, {255, 255, 255});
     drawButton(settingsWindow, r.btnExit, "Exit", {50, 50, 50}, {255, 255, 255});
 }
@@ -492,7 +500,8 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
                       std::atomic<bool> &exitFlag,
                       std::atomic<bool> &autoCaptureFlag)
 {
-    CallbackContext context{camera, &exitFlag, &autoCaptureFlag};
+    movieRecFlag.store(false);
+    CallbackContext context{camera, &exitFlag, &autoCaptureFlag, &movieRecFlag};
     std::thread autoCaptureThread([&]()
                                   {
 
@@ -616,6 +625,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
     auto camera = context->camera;
     auto exitFlag = context->exitFlag;
     auto autoCaptureFlag = context->autoCaptureFlag;
+    auto movieRecFlagPtr = context->movieRecFlag;
 
     const auto r = makeLayout();
     const cv::Point pt{x, y};
@@ -927,6 +937,14 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
     {
         *autoCaptureFlag = !(*autoCaptureFlag);
         std::cout << "[Auto Capture] toggled to: " << (*autoCaptureFlag ? "ON" : "OFF") << "\n";
+        return;
+    }
+    if (pointIn(pt, r.btnMovieRec))
+    {
+        bool nowRecording = !movieRecFlagPtr->load();
+        movieRecFlagPtr->store(nowRecording);
+        camera->execute_movie_rec_toggle();
+        std::cout << "[Movie Rec] " << (nowRecording ? "Started recording\n" : "Stopped recording\n");
         return;
     }
     if (pointIn(pt, r.btnOpenLatest))
