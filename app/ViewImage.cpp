@@ -943,7 +943,10 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
     {
         bool nowRecording = !movieRecFlagPtr->load();
         movieRecFlagPtr->store(nowRecording);
-        camera->execute_movie_rec_toggle();
+        if (nowRecording)
+            camera->start_movie_rec();
+        else
+            camera->stop_movie_rec();
         std::cout << "[Movie Rec] " << (nowRecording ? "Started recording\n" : "Stopped recording\n");
         return;
     }

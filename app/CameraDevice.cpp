@@ -2886,6 +2886,20 @@ namespace cli
         }
     }
 
+    void CameraDevice::start_movie_rec()
+    {
+        SDK::SendCommand(m_device_handle, SDK::CrCommandId::CrCommandId_MovieRecord,
+                         SDK::CrCommandParam::CrCommandParam_Up);
+    }
+
+    void CameraDevice::stop_movie_rec()
+    {
+        SDK::SendCommand(m_device_handle, SDK::CrCommandId::CrCommandId_MovieRecord,
+                         SDK::CrCommandParam::CrCommandParam_Down);
+        if (SDK::CrSdkControlMode_RemoteTransfer == get_sdkmode())
+            execute_movie_rec_and_get_contentsdata();
+    }
+
     void CameraDevice::set_custom_wb()
     {
         load_properties();

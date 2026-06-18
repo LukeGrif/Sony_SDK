@@ -196,6 +196,8 @@ public:
     void execute_lock_property(CrInt16u code);
     void set_select_media_format();
     void execute_movie_rec();
+    void start_movie_rec();
+    void stop_movie_rec();
     void execute_downup_property(CrInt16u code);
     void execute_pos_xy(CrInt16u code);
     void change_live_view_enable();
