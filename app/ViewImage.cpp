@@ -65,6 +65,11 @@ static const int EXPOSURE_DROPDOWN_VISIBLE = 6;
 // Movie recording toggle state
 static std::atomic<bool> movieRecFlag{false};
 
+// Save destination dropdown state
+static std::vector<std::string> saveDestOptions = {"PC", "Camera", "Both"};
+static int currentSaveDestIndex = 0;
+static bool showSaveDestDropdown = false;
+
 // Interval input state
 static std::atomic<int> autoIntervalMs{3000};
 static bool editingInterval = false;
@@ -110,6 +115,8 @@ struct UIRects
 
     cv::Rect intervalBox;
     cv::Rect btnMovieRec;
+    cv::Rect saveDestBox;
+    std::vector<cv::Rect> saveDestItems;
     cv::Rect btnOpenLatest;
     cv::Rect btnExit;
 };
@@ -194,11 +201,20 @@ static UIRects makeLayout()
     int x4 = x3 + btnW + colGap;
     r.btnExit = {x4, y, btnW, btnH};
 
-    // Next row: Auto-capture, interval input, and movie record
+    // Next row: Auto-capture, interval input, movie record, save destination
     y += btnH + gapY;
     r.btnAutoCapture = {leftX, y, btnW, btnH};
     r.intervalBox = {leftX + btnW + colGap, y, btnW, btnH};
     r.btnMovieRec = {leftX + (btnW + colGap) * 2, y, btnW, btnH};
+
+    const int sdX = leftX + (btnW + colGap) * 3;
+    const int sdW = btnW;
+    r.saveDestBox = {sdX, y, sdW, btnH};
+    {
+        const int itemH = 34, itemGap = 4;
+        for (int i = 0; i < 3; ++i)
+            r.saveDestItems.push_back(cv::Rect(sdX, y + btnH + 6 + i * (itemH + itemGap), sdW, itemH));
+    }
 
     return r;
 }
@@ -456,6 +472,33 @@ static void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &auto
     drawButton(settingsWindow, r.btnMovieRec, "Record Video",
                movieRecFlag.load() ? cv::Scalar(0, 0, 220) : cv::Scalar(180, 180, 180),
                movieRecFlag.load() ? cv::Scalar(255, 255, 255) : cv::Scalar(0, 0, 0));
+
+    // Save destination dropdown
+    drawLabelAbove(settingsWindow, r.saveDestBox, "Save To");
+    cv::rectangle(settingsWindow, r.saveDestBox, {200, 200, 200}, cv::FILLED, cv::LINE_AA);
+    {
+        int bl = 0;
+        std::string sdLabel = saveDestOptions[currentSaveDestIndex];
+        auto sdSz = cv::getTextSize(sdLabel, cv::FONT_HERSHEY_SIMPLEX, 0.85, 2, &bl);
+        cv::putText(settingsWindow, sdLabel,
+                    {r.saveDestBox.x + 10, r.saveDestBox.y + (r.saveDestBox.height + sdSz.height) / 2},
+                    cv::FONT_HERSHEY_SIMPLEX, 0.85, {0, 0, 0}, 2, cv::LINE_AA);
+    }
+    if (showSaveDestDropdown)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            const auto &itemRc = r.saveDestItems[i];
+            cv::Scalar bg = (i == currentSaveDestIndex) ? cv::Scalar(160, 210, 160) : cv::Scalar(220, 220, 220);
+            cv::rectangle(settingsWindow, itemRc, bg, cv::FILLED, cv::LINE_AA);
+            int bl = 0;
+            auto sz2 = cv::getTextSize(saveDestOptions[i], cv::FONT_HERSHEY_SIMPLEX, 0.85, 2, &bl);
+            cv::putText(settingsWindow, saveDestOptions[i],
+                        {itemRc.x + 10, itemRc.y + (itemRc.height + sz2.height) / 2},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.85, {0, 0, 0}, 2, cv::LINE_AA);
+        }
+    }
+
     drawButton(settingsWindow, r.btnOpenLatest, "Open Latest", {100, 180, 250}, {255, 255, 255});
     drawButton(settingsWindow, r.btnExit, "Exit", {50, 50, 50}, {255, 255, 255});
 }
@@ -686,6 +729,37 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
         editingInterval = false;
     }
 
+    // Save destination dropdown toggle
+    if (pointIn(pt, r.saveDestBox))
+    {
+        showSaveDestDropdown = !showSaveDestDropdown;
+        if (showSaveDestDropdown)
+        {
+            showDropdown = false;
+            showShutterDropdown = false;
+            showApertureDropdown = false;
+            showISODropdown = false;
+            showExposureDropdown = false;
+        }
+        return;
+    }
+    if (showSaveDestDropdown)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            if (pointIn(pt, r.saveDestItems[i]))
+            {
+                currentSaveDestIndex = i;
+                camera->set_still_image_store_destination(i);
+                showSaveDestDropdown = false;
+                std::cout << "[Save To] Set to: " << saveDestOptions[i] << "\n";
+                return;
+            }
+        }
+        showSaveDestDropdown = false;
+        return;
+    }
+
     // Focus dropdown toggle
     if (pointIn(pt, r.dropdownBox))
     {
@@ -696,6 +770,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showApertureDropdown = false;
             showISODropdown = false;
             showExposureDropdown = false;
+            showSaveDestDropdown = false;
         }
         return;
     }
@@ -726,6 +801,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showShutterDropdown = false;
             showApertureDropdown = false;
             showISODropdown = false;
+            showSaveDestDropdown = false;
         }
         return;
     }
@@ -776,6 +852,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showApertureDropdown = false;
             showISODropdown = false;
             showExposureDropdown = false;
+            showSaveDestDropdown = false;
         }
         return;
     }
@@ -826,6 +903,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showShutterDropdown = false;
             showISODropdown = false;
             showExposureDropdown = false;
+            showSaveDestDropdown = false;
         }
         return;
     }
@@ -876,6 +954,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showShutterDropdown = false;
             showApertureDropdown = false;
             showExposureDropdown = false;
+            showSaveDestDropdown = false;
         }
         return;
     }
