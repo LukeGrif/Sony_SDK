@@ -23,6 +23,7 @@ private:
         std::shared_ptr<cli::CameraDevice> camera;
         std::atomic<bool> *exitFlag;
         std::atomic<bool> *autoCaptureFlag;
+        std::atomic<bool> *movieRecFlag;
     };
 };
 
