@@ -143,6 +143,7 @@ public:
     void set_aperture_new(const std::wstring &label, int index);
     void set_iso();
     void set_iso_new(const std::wstring &label, int index);
+    void set_still_image_store_destination(int index);
     bool set_save_info() const;
     void set_shutter_speed();
     void set_shutter_speed_new(const std::wstring &label, int index);

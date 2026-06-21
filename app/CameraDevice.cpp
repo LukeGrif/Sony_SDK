@@ -1859,6 +1859,23 @@ namespace cli
         SDK::SetDeviceProperty(m_device_handle, &prop);
     }
 
+    void CameraDevice::set_still_image_store_destination(int index)
+    {
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_StillImageStoreDestination);
+        prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+
+        switch (index)
+        {
+        case 0: prop.SetCurrentValue(SDK::CrStillImageStoreDestination::CrStillImageStoreDestination_HostPC); break;
+        case 1: prop.SetCurrentValue(SDK::CrStillImageStoreDestination::CrStillImageStoreDestination_MemoryCard); break;
+        case 2: prop.SetCurrentValue(SDK::CrStillImageStoreDestination::CrStillImageStoreDestination_HostPCAndMemoryCard); break;
+        default: tout << "Invalid save destination index\n"; return;
+        }
+
+        SDK::SetDeviceProperty(m_device_handle, &prop);
+    }
+
     bool CameraDevice::set_save_info() const
     {
 #if defined(__APPLE__)
