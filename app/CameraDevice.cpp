@@ -6813,9 +6813,8 @@ namespace cli
         return false;
     }
 
-    bool CameraDevice::fetchContents()
+    bool CameraDevice::contentsTransferEnabled()
     {
-        // check status
         std::int32_t nprop = 0;
         SDK::CrDeviceProperty *prop_list = nullptr;
         CrInt32u getCode = SDK::CrDevicePropertyCode::CrDeviceProperty_ContentsTransferStatus;
@@ -6829,7 +6828,28 @@ namespace cli
             }
             SDK::ReleaseDeviceProperties(m_device_handle, prop_list);
         }
-        if (false == bExec)
+        return bExec;
+    }
+
+    // Poll for a connect/disconnect transition (state flips asynchronously in
+    // OnConnected/OnDisconnected). Returns true once is_connected() == connected.
+    bool CameraDevice::waitConnectionState(bool connected, int timeoutMs)
+    {
+        for (int waited = 0; waited < timeoutMs; waited += 100)
+        {
+            if (is_connected() == connected)
+            {
+                return true;
+            }
+            std::this_thread::sleep_for(100ms);
+        }
+        return is_connected() == connected;
+    }
+
+    bool CameraDevice::fetchContents()
+    {
+        // check status
+        if (false == contentsTransferEnabled())
         {
             tout << "GetContentsListEnableStatus is Disable. Do it after it becomes Enable.\n";
             return false;
@@ -7098,6 +7118,63 @@ namespace cli
     }
 
     std::string CameraDevice::openLatestStill2M()
+    {
+        // The GUI runs in Remote Control mode, but the "get contents" command
+        // only works in Contents Transfer mode. If we are already in Contents
+        // Transfer mode just pull; otherwise switch to it, pull, then switch back
+        // so live view resumes.
+        if (SDK::CrSdkControlMode_ContentsTransfer == get_sdkmode())
+        {
+            return pullLatestStill2M();
+        }
+
+        SDK::CrSdkControlMode originalMode = get_sdkmode();
+
+        // 1) Leave the current (Remote Control) mode.
+        if (is_connected())
+        {
+            disconnect();
+            if (!waitConnectionState(false, 10000))
+            {
+                tout << "Open Latest: camera did not disconnect in time.\n";
+                return std::string();
+            }
+        }
+
+        // 2) Enter Contents Transfer mode.
+        tout << "Open Latest: switching to Contents Transfer mode...\n";
+        std::string savedPath;
+        if (connect(SDK::CrSdkControlMode_ContentsTransfer, SDK::CrReconnecting_ON) &&
+            waitConnectionState(true, 15000))
+        {
+            // The contents-transfer status may take a moment to become enabled.
+            for (int i = 0; i < 40 && !contentsTransferEnabled(); ++i)
+            {
+                std::this_thread::sleep_for(250ms);
+            }
+            savedPath = pullLatestStill2M();
+        }
+        else
+        {
+            tout << "Open Latest: failed to enter Contents Transfer mode.\n";
+        }
+
+        // 3) Return to the original (Remote Control) mode so live view resumes.
+        tout << "Open Latest: returning to Remote Control mode...\n";
+        if (is_connected())
+        {
+            disconnect();
+            waitConnectionState(false, 10000);
+        }
+        if (connect(originalMode, SDK::CrReconnecting_ON))
+        {
+            waitConnectionState(true, 15000);
+        }
+
+        return savedPath;
+    }
+
+    std::string CameraDevice::pullLatestStill2M()
     {
         // Run the same "get contents" command used by Contents Transfer mode.
         if (!fetchContents())
