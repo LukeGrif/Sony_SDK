@@ -384,6 +384,8 @@ private:
     bool m_waitingLatestDownload = false;
     bool m_latestDownloadComplete = false;
     text m_latestDownloadFile;
+    // Set by OnWarning when the camera reports it cannot transfer content.
+    std::atomic<bool> m_contentsTransferBlocked{false};
 };
 } // namespace cli
 

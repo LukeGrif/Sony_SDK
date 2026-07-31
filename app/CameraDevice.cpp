@@ -5524,6 +5524,8 @@ namespace cli
         case SDK::CrWarning_ContentsTransferMode_StatusError:
             tout << "\nThe camera is in a condition where it cannot transfer content.\n\n";
             tout << "Please input '0' to return to the TOP-MENU and connect again.\n";
+            // Let openLatestStill2M() give up quickly instead of hanging.
+            m_contentsTransferBlocked.store(true);
             break;
         case SDK::CrWarning_ContentsTransferMode_CanceledFromCamera:
             tout << "\nContent transfer mode canceled.\n";
@@ -7130,6 +7132,10 @@ namespace cli
 
         SDK::CrSdkControlMode originalMode = get_sdkmode();
 
+        // Give the camera a moment to finish any in-progress capture (long
+        // exposure / noise reduction) so it is less likely to report "busy".
+        std::this_thread::sleep_for(1s);
+
         // 1) Leave the current (Remote Control) mode.
         if (is_connected())
         {
@@ -7143,16 +7149,39 @@ namespace cli
 
         // 2) Enter Contents Transfer mode.
         tout << "Open Latest: switching to Contents Transfer mode...\n";
+        m_contentsTransferBlocked.store(false);
         std::string savedPath;
         if (connect(SDK::CrSdkControlMode_ContentsTransfer, SDK::CrReconnecting_ON) &&
             waitConnectionState(true, 15000))
         {
-            // The contents-transfer status may take a moment to become enabled.
-            for (int i = 0; i < 40 && !contentsTransferEnabled(); ++i)
+            // Wait for the contents status to become enabled, but stop early if
+            // the camera reports it cannot transfer content (busy / status error
+            // / no card), so the UI never hangs waiting for CLI input.
+            bool ready = false;
+            for (int i = 0; i < 40 && !m_contentsTransferBlocked.load(); ++i)
             {
+                if (contentsTransferEnabled())
+                {
+                    ready = true;
+                    break;
+                }
                 std::this_thread::sleep_for(250ms);
             }
-            savedPath = pullLatestStill2M();
+
+            if (ready)
+            {
+                savedPath = pullLatestStill2M();
+            }
+            else if (m_contentsTransferBlocked.load())
+            {
+                tout << "Open Latest: the camera cannot transfer content right now "
+                        "(busy, wrong mode, or no memory card). Make sure a card with "
+                        "images is inserted and the camera is idle, then try again.\n";
+            }
+            else
+            {
+                tout << "Open Latest: contents transfer did not become ready in time.\n";
+            }
         }
         else
         {
