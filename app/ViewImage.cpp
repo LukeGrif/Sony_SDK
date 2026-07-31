@@ -1032,8 +1032,14 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
     if (pointIn(pt, r.btnOpenLatest))
     {
         std::cout << "[Open Latest] clicked\n";
-        std::string folder = "C:\\Users\\Luke Griffin\\OneDrive\\Desktop\\Sony_SDK\\build\\Release";
-        std::string latest = findLatestDSCImage(folder);
+        // Run the Contents Transfer "get contents" command, download the newest
+        // still as 2M into the working (Release) folder, and open it.
+        std::string latest = camera->openLatestStill2M();
+        if (latest.empty())
+        {
+            // Fall back to the newest DSCxxxxx.JPG already in the working folder.
+            latest = findLatestDSCImage(fs::current_path().string());
+        }
         if (!latest.empty())
         {
             std::cout << "Opening in default viewer: " << latest << "\n";
@@ -1041,7 +1047,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
         }
         else
         {
-            std::cout << "No DSCxxxxx.JPG files found.\n";
+            std::cout << "No still image available to open.\n";
         }
         return;
     }

@@ -5482,6 +5482,15 @@ namespace cli
         {
             text file(filename);
             tout << "[COMPLETE] Contents Handle: 0x" << std::hex << contentHandle << std::dec << ", File: " << file.data() << std::endl;
+
+            // Signal a pending "Open Latest" request with the saved file path.
+            std::lock_guard<std::mutex> lk(m_latestDownloadMtx);
+            if (m_waitingLatestDownload)
+            {
+                m_latestDownloadFile = file;
+                m_latestDownloadComplete = true;
+                m_latestDownloadCv.notify_all();
+            }
         }
         // Other
         else
@@ -6804,7 +6813,7 @@ namespace cli
         return false;
     }
 
-    void CameraDevice::getContentsList()
+    bool CameraDevice::fetchContents()
     {
         // check status
         std::int32_t nprop = 0;
@@ -6823,7 +6832,7 @@ namespace cli
         if (false == bExec)
         {
             tout << "GetContentsListEnableStatus is Disable. Do it after it becomes Enable.\n";
-            return;
+            return false;
         }
 
         for (CRFolderInfos *pF : m_foldList)
@@ -6863,7 +6872,7 @@ namespace cli
 
             if (0 == m_foldList.size())
             {
-                return;
+                return false;
             }
 
             MtpFolderList::iterator it = m_foldList.begin();
@@ -6907,16 +6916,25 @@ namespace cli
         else if (CR_SUCCEEDED(err) && 0 == f_nums)
         {
             tout << "No images in memory card." << std::endl;
-            return;
+            return false;
         }
         else
         {
             // err
             tout << "Failed SDK::GetContentsList()" << std::endl;
+            return false;
+        }
+
+        return CR_SUCCEEDED(err);
+    }
+
+    void CameraDevice::getContentsList()
+    {
+        if (!fetchContents())
+        {
             return;
         }
 
-        if (CR_SUCCEEDED(err))
         {
             MtpFolderList::iterator itF = m_foldList.begin();
             for (std::int32_t f_sep = 0; itF != m_foldList.end(); ++f_sep, ++itF)
@@ -7077,6 +7095,69 @@ namespace cli
                 }
             }
         }
+    }
+
+    std::string CameraDevice::openLatestStill2M()
+    {
+        // Run the same "get contents" command used by Contents Transfer mode.
+        if (!fetchContents())
+        {
+            tout << "Open Latest: contents list is not available.\n";
+            return std::string();
+        }
+
+        // Pick the most recent still image (highest-numbered JPG/ARW/HIF).
+        // The list is ordered ascending, so the last matching still is the newest.
+        SDK::CrMtpContentsInfo *latest = nullptr;
+        for (SDK::CrMtpContentsInfo *pC : m_contentList)
+        {
+            text fname(pC->fileName);
+            if (fname.length() < 4)
+            {
+                continue;
+            }
+            text ext = fname.substr(fname.length() - 4, 4);
+            if ((0 == ext.compare(TEXT(".JPG"))) ||
+                (0 == ext.compare(TEXT(".ARW"))) ||
+                (0 == ext.compare(TEXT(".HIF"))))
+            {
+                latest = pC;
+            }
+        }
+        if (nullptr == latest)
+        {
+            tout << "Open Latest: no still images found.\n";
+            return std::string();
+        }
+
+        // Arm the completion wait, then download the newest still as 2M.
+        {
+            std::lock_guard<std::mutex> lk(m_latestDownloadMtx);
+            m_waitingLatestDownload = true;
+            m_latestDownloadComplete = false;
+            m_latestDownloadFile.clear();
+        }
+
+        getScreennail(latest->handle); // [3] 2M
+
+        std::string savedPath;
+        {
+            std::unique_lock<std::mutex> lk(m_latestDownloadMtx);
+            if (m_latestDownloadCv.wait_for(lk, 60s, [this] { return m_latestDownloadComplete; }))
+            {
+#if defined(_UNICODE) || defined(UNICODE)
+                savedPath.assign(m_latestDownloadFile.begin(), m_latestDownloadFile.end());
+#else
+                savedPath = m_latestDownloadFile;
+#endif
+            }
+            else
+            {
+                tout << "Open Latest: timed out waiting for the download to finish.\n";
+            }
+            m_waitingLatestDownload = false;
+        }
+        return savedPath;
     }
 
     void CameraDevice::pullContents(SDK::CrContentHandle content)

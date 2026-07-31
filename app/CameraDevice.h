@@ -241,6 +241,9 @@ public:
     bool is_connected() const;
 
     void getContentsList();
+    // Download the newest still image as 2M via the Contents Transfer command
+    // and return the saved file path (empty on failure/timeout).
+    std::string openLatestStill2M();
     void getFileNames(std::vector<text> &file_names);
     void pullContents(SCRSDK::CrContentHandle content);
     void getScreennail(SCRSDK::CrContentHandle content);
@@ -321,6 +324,7 @@ public:
 
 private:
     void load_properties(CrInt32u num = 0, CrInt32u* codes = nullptr);
+    bool fetchContents();
     void get_property(SCRSDK::CrDeviceProperty& prop) const;
     bool set_property(SCRSDK::CrDeviceProperty& prop) const;
     text format_dispstrlist(SCRSDK::CrDisplayStringListInfo list);
@@ -369,6 +373,13 @@ private:
 
     // RemoteFirmwareUpdate
     CrInt32u m_latestFirmwareUploadRate;
+
+    // "Open Latest" (Contents Transfer) download synchronization
+    std::mutex m_latestDownloadMtx;
+    std::condition_variable m_latestDownloadCv;
+    bool m_waitingLatestDownload = false;
+    bool m_latestDownloadComplete = false;
+    text m_latestDownloadFile;
 };
 } // namespace cli
 
