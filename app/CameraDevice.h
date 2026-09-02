@@ -144,6 +144,9 @@ public:
     void set_iso();
     void set_iso_new(const std::wstring &label, int index);
     void set_still_image_store_destination(int index);
+    // Read the current still-image save destination from the camera and map it
+    // to the dropdown index (0=PC, 1=Camera, 2=Both). Returns -1 if unavailable.
+    int get_still_image_store_destination();
     bool set_save_info() const;
     void set_shutter_speed();
     void set_shutter_speed_new(const std::wstring &label, int index);

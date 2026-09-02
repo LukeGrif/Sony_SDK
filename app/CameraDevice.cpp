@@ -1876,6 +1876,30 @@ namespace cli
         SDK::SetDeviceProperty(m_device_handle, &prop);
     }
 
+    int CameraDevice::get_still_image_store_destination()
+    {
+        std::int32_t nprop = 0;
+        SDK::CrDeviceProperty *prop_list = nullptr;
+        CrInt32u getCode = SDK::CrDevicePropertyCode::CrDeviceProperty_StillImageStoreDestination;
+        SDK::CrError res = SDK::GetSelectDeviceProperties(m_device_handle, 1, &getCode, &prop_list, &nprop);
+        int index = -1;
+        if (CR_SUCCEEDED(res) && (1 == nprop) && (getCode == prop_list[0].GetCode()))
+        {
+            switch (prop_list[0].GetCurrentValue())
+            {
+            case SDK::CrStillImageStoreDestination::CrStillImageStoreDestination_HostPC: index = 0; break;
+            case SDK::CrStillImageStoreDestination::CrStillImageStoreDestination_MemoryCard: index = 1; break;
+            case SDK::CrStillImageStoreDestination::CrStillImageStoreDestination_HostPCAndMemoryCard: index = 2; break;
+            default: break;
+            }
+        }
+        if (nullptr != prop_list)
+        {
+            SDK::ReleaseDeviceProperties(m_device_handle, prop_list);
+        }
+        return index;
+    }
+
     bool CameraDevice::set_save_info() const
     {
 #if defined(__APPLE__)

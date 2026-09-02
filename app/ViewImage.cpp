@@ -621,6 +621,16 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
             currentShutterSpeed = camera->get_shutter_speed_output();
             currentAperture = camera->get_aperture_output();
             currentISO = camera->get_iso_output();
+
+            // Mirror the camera's actual save destination in the dropdown, so it
+            // reflects the real setting instead of resetting to "PC" each launch.
+            // Leave the current selection untouched while the dropdown is open.
+            if (!showSaveDestDropdown)
+            {
+                int dest = camera->get_still_image_store_destination();
+                if (dest >= 0)
+                    currentSaveDestIndex = dest;
+            }
         }
 
         // Load the background image
