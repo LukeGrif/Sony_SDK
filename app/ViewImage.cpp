@@ -118,11 +118,12 @@ struct UIRects
     cv::Rect saveDestBox;
     std::vector<cv::Rect> saveDestItems;
     cv::Rect btnOpenLatest;
+    cv::Rect btnOpenLatestVideo;
     cv::Rect btnExit;
 };
 
 // Smaller control-centre window
-static const int CC_WIDTH = 1080;
+static const int CC_WIDTH = 1120;
 static const int CC_HEIGHT = 600;
 
 static UIRects makeLayout()
@@ -192,14 +193,16 @@ static UIRects makeLayout()
     int leftX = 20;
     int y = topY + ddH + 280; // space under dropdown lists
 
-    // Row: Focus | Capture | Open Latest | Exit
+    // Row: Focus | Capture | Latest Photo | Latest Video | Exit
     r.btnFocus = {leftX, y, btnW, btnH};
     int x2 = leftX + btnW + colGap;
     r.btnCapture = {x2, y, btnW, btnH};
     int x3 = x2 + btnW + colGap;
     r.btnOpenLatest = {x3, y, btnW, btnH};
     int x4 = x3 + btnW + colGap;
-    r.btnExit = {x4, y, btnW, btnH};
+    r.btnOpenLatestVideo = {x4, y, btnW, btnH};
+    int x5 = x4 + btnW + colGap;
+    r.btnExit = {x5, y, btnW, btnH};
 
     // Next row: Auto-capture, interval input, movie record, save destination
     y += btnH + gapY;
@@ -499,7 +502,8 @@ static void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &auto
         }
     }
 
-    drawButton(settingsWindow, r.btnOpenLatest, "Open Latest", {100, 180, 250}, {255, 255, 255});
+    drawButton(settingsWindow, r.btnOpenLatest, "Latest Photo", {100, 180, 250}, {255, 255, 255});
+    drawButton(settingsWindow, r.btnOpenLatestVideo, "Latest Video", {200, 120, 90}, {255, 255, 255});
     drawButton(settingsWindow, r.btnExit, "Exit", {50, 50, 50}, {255, 255, 255});
 }
 
@@ -533,6 +537,41 @@ static std::string findLatestDSCImage(const std::string &folder)
                 latestTime = cftime;
                 latestFile = entry.path().string();
             }
+        }
+    }
+    return latestFile;
+}
+
+static std::string findLatestVideo(const std::string &folder)
+{
+    static const std::vector<std::string> videoExts = {".mp4", ".mov", ".mts", ".m4v"};
+    std::string latestFile;
+    std::time_t latestTime = 0;
+    for (const auto &entry : fs::directory_iterator(folder))
+    {
+        if (!entry.is_regular_file())
+            continue;
+        std::string lower = toLower(entry.path().filename().string());
+        bool isVideo = false;
+        for (const auto &ext : videoExts)
+        {
+            if (lower.size() >= ext.size() &&
+                lower.compare(lower.size() - ext.size(), ext.size(), ext) == 0)
+            {
+                isVideo = true;
+                break;
+            }
+        }
+        if (!isVideo)
+            continue;
+        auto ftime = fs::last_write_time(entry);
+        auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+        std::time_t cftime = std::chrono::system_clock::to_time_t(sctp);
+        if (cftime > latestTime)
+        {
+            latestTime = cftime;
+            latestFile = entry.path().string();
         }
     }
     return latestFile;
@@ -1048,6 +1087,28 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
         else
         {
             std::cout << "No still image available to open.\n";
+        }
+        return;
+    }
+    if (pointIn(pt, r.btnOpenLatestVideo))
+    {
+        std::cout << "[Latest Video] clicked\n";
+        // Run the Contents Transfer "get contents" command, download the newest
+        // movie at its original size into the working (Release) folder, and open it.
+        std::string latest = camera->openLatestMovie();
+        if (latest.empty())
+        {
+            // Fall back to the newest video already in the working folder.
+            latest = findLatestVideo(fs::current_path().string());
+        }
+        if (!latest.empty())
+        {
+            std::cout << "Opening in default viewer: " << latest << "\n";
+            ShellExecuteA(NULL, "open", latest.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+        else
+        {
+            std::cout << "No video available to open.\n";
         }
         return;
     }

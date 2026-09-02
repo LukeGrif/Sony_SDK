@@ -7121,13 +7121,25 @@ namespace cli
 
     std::string CameraDevice::openLatestStill2M()
     {
+        return openLatestContent(false);
+    }
+
+    std::string CameraDevice::openLatestMovie()
+    {
+        return openLatestContent(true);
+    }
+
+    std::string CameraDevice::openLatestContent(bool wantMovie)
+    {
+        const char *what = wantMovie ? "Open Latest Video" : "Open Latest";
+
         // The GUI runs in Remote Control mode, but the "get contents" command
         // only works in Contents Transfer mode. If we are already in Contents
         // Transfer mode just pull; otherwise switch to it, pull, then switch back
         // so live view resumes.
         if (SDK::CrSdkControlMode_ContentsTransfer == get_sdkmode())
         {
-            return pullLatestStill2M();
+            return pullLatestContent(wantMovie);
         }
 
         SDK::CrSdkControlMode originalMode = get_sdkmode();
@@ -7142,13 +7154,13 @@ namespace cli
             disconnect();
             if (!waitConnectionState(false, 10000))
             {
-                tout << "Open Latest: camera did not disconnect in time.\n";
+                tout << what << ": camera did not disconnect in time.\n";
                 return std::string();
             }
         }
 
         // 2) Enter Contents Transfer mode.
-        tout << "Open Latest: switching to Contents Transfer mode...\n";
+        tout << what << ": switching to Contents Transfer mode...\n";
         m_contentsTransferBlocked.store(false);
         std::string savedPath;
         if (connect(SDK::CrSdkControlMode_ContentsTransfer, SDK::CrReconnecting_ON) &&
@@ -7170,26 +7182,26 @@ namespace cli
 
             if (ready)
             {
-                savedPath = pullLatestStill2M();
+                savedPath = pullLatestContent(wantMovie);
             }
             else if (m_contentsTransferBlocked.load())
             {
-                tout << "Open Latest: the camera cannot transfer content right now "
+                tout << what << ": the camera cannot transfer content right now "
                         "(busy, wrong mode, or no memory card). Make sure a card with "
                         "images is inserted and the camera is idle, then try again.\n";
             }
             else
             {
-                tout << "Open Latest: contents transfer did not become ready in time.\n";
+                tout << what << ": contents transfer did not become ready in time.\n";
             }
         }
         else
         {
-            tout << "Open Latest: failed to enter Contents Transfer mode.\n";
+            tout << what << ": failed to enter Contents Transfer mode.\n";
         }
 
         // 3) Return to the original (Remote Control) mode so live view resumes.
-        tout << "Open Latest: returning to Remote Control mode...\n";
+        tout << what << ": returning to Remote Control mode...\n";
         if (is_connected())
         {
             disconnect();
@@ -7205,15 +7217,23 @@ namespace cli
 
     std::string CameraDevice::pullLatestStill2M()
     {
+        return pullLatestContent(false);
+    }
+
+    std::string CameraDevice::pullLatestContent(bool wantMovie)
+    {
+        const char *what = wantMovie ? "Open Latest Video" : "Open Latest";
+
         // Run the same "get contents" command used by Contents Transfer mode.
         if (!fetchContents())
         {
-            tout << "Open Latest: contents list is not available.\n";
+            tout << what << ": contents list is not available.\n";
             return std::string();
         }
 
-        // Pick the most recent still image (highest-numbered JPG/ARW/HIF).
-        // The list is ordered ascending, so the last matching still is the newest.
+        // Pick the most recent matching file. The list is ordered ascending, so
+        // the last matching entry is the newest. Stills are JPG/ARW/HIF; movies
+        // are MP4/MOV/MTS (Sony XAVC S records .MP4).
         SDK::CrMtpContentsInfo *latest = nullptr;
         for (SDK::CrMtpContentsInfo *pC : m_contentList)
         {
@@ -7223,20 +7243,32 @@ namespace cli
                 continue;
             }
             text ext = fname.substr(fname.length() - 4, 4);
-            if ((0 == ext.compare(TEXT(".JPG"))) ||
-                (0 == ext.compare(TEXT(".ARW"))) ||
-                (0 == ext.compare(TEXT(".HIF"))))
+            bool match = false;
+            if (wantMovie)
+            {
+                match = (0 == ext.compare(TEXT(".MP4"))) ||
+                        (0 == ext.compare(TEXT(".MOV"))) ||
+                        (0 == ext.compare(TEXT(".MTS")));
+            }
+            else
+            {
+                match = (0 == ext.compare(TEXT(".JPG"))) ||
+                        (0 == ext.compare(TEXT(".ARW"))) ||
+                        (0 == ext.compare(TEXT(".HIF")));
+            }
+            if (match)
             {
                 latest = pC;
             }
         }
         if (nullptr == latest)
         {
-            tout << "Open Latest: no still images found.\n";
+            tout << what << (wantMovie ? ": no movie files found.\n" : ": no still images found.\n");
             return std::string();
         }
 
-        // Arm the completion wait, then download the newest still as 2M.
+        // Arm the completion wait, then download the newest content. Movies are
+        // pulled at their original size (2M/screennail is still-image only).
         {
             std::lock_guard<std::mutex> lk(m_latestDownloadMtx);
             m_waitingLatestDownload = true;
@@ -7244,12 +7276,22 @@ namespace cli
             m_latestDownloadFile.clear();
         }
 
-        getScreennail(latest->handle); // [3] 2M
+        if (wantMovie)
+        {
+            pullContents(latest->handle); // original size
+        }
+        else
+        {
+            getScreennail(latest->handle); // [3] 2M
+        }
+
+        // Movie files are much larger than a 2M still, so allow more time.
+        const auto timeout = wantMovie ? std::chrono::seconds(300) : std::chrono::seconds(60);
 
         std::string savedPath;
         {
             std::unique_lock<std::mutex> lk(m_latestDownloadMtx);
-            if (m_latestDownloadCv.wait_for(lk, 60s, [this] { return m_latestDownloadComplete; }))
+            if (m_latestDownloadCv.wait_for(lk, timeout, [this] { return m_latestDownloadComplete; }))
             {
 #if defined(_UNICODE) || defined(UNICODE)
                 savedPath.assign(m_latestDownloadFile.begin(), m_latestDownloadFile.end());
@@ -7259,7 +7301,7 @@ namespace cli
             }
             else
             {
-                tout << "Open Latest: timed out waiting for the download to finish.\n";
+                tout << what << ": timed out waiting for the download to finish.\n";
             }
             m_waitingLatestDownload = false;
         }

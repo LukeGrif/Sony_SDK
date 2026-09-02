@@ -245,6 +245,9 @@ public:
     // and return the saved file path (empty on failure/timeout). If not already
     // in Contents Transfer mode, switches into it for the pull and back again.
     std::string openLatestStill2M();
+    // Same as openLatestStill2M() but downloads the newest movie file at its
+    // original size instead of a still image.
+    std::string openLatestMovie();
     void getFileNames(std::vector<text> &file_names);
     void pullContents(SCRSDK::CrContentHandle content);
     void getScreennail(SCRSDK::CrContentHandle content);
@@ -329,6 +332,11 @@ private:
     bool contentsTransferEnabled();
     bool waitConnectionState(bool connected, int timeoutMs);
     std::string pullLatestStill2M();
+    // Shared implementation for "Open Latest" photo/video. When wantMovie is
+    // true the newest movie file is pulled at original size; otherwise the
+    // newest still image is pulled as 2M.
+    std::string openLatestContent(bool wantMovie);
+    std::string pullLatestContent(bool wantMovie);
     void get_property(SCRSDK::CrDeviceProperty& prop) const;
     bool set_property(SCRSDK::CrDeviceProperty& prop) const;
     text format_dispstrlist(SCRSDK::CrDisplayStringListInfo list);
