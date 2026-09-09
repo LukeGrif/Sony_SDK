@@ -77,6 +77,12 @@ static std::atomic<int> autoIntervalMs{3000};
 static bool editingInterval = false;
 static std::string intervalBuf = "3000";
 
+// Set by the "Browse Files" button in the mouse callback and serviced by the
+// main UI loop. The browse flow opens its own OpenCV window, and Windows'
+// HighGUI is not reentrant, so it must run on the main thread rather than from
+// inside the mouse callback.
+static std::atomic<bool> browseFilesRequested{false};
+
 // Current read-only values (from camera)
 static std::wstring currentExposureMode;
 static std::wstring currentShutterSpeed;
@@ -712,15 +718,37 @@ namespace
             if ((key & 0xFF) == 27) // Esc
             {
                 st.selected = -1;
+                break;
             }
             // If the user closed the window with the X button, bail out too.
-            else if (cv::getWindowProperty(win, cv::WND_PROP_VISIBLE) < 1)
+            // getWindowProperty returns -1 when the window no longer exists.
+            double vis = -1.0;
+            try
+            {
+                vis = cv::getWindowProperty(win, cv::WND_PROP_VISIBLE);
+            }
+            catch (const cv::Exception &)
+            {
+                vis = -1.0;
+            }
+            if (vis < 1.0)
             {
                 st.selected = -1;
+                break;
             }
         }
 
-        cv::destroyWindow(win);
+        // Tear the window down defensively: if it was closed via the X button it
+        // may already be gone, and destroying a missing window throws on Windows.
+        try
+        {
+            if (cv::getWindowProperty(win, cv::WND_PROP_VISIBLE) >= 0.0)
+                cv::destroyWindow(win);
+        }
+        catch (const cv::Exception &)
+        {
+            // Window already gone; nothing to do.
+        }
         return st.selected;
     }
 } // namespace
@@ -846,6 +874,25 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
             if ((key & 0xFF) == 27)
             {
                 exitFlag = true;
+            }
+        }
+
+        // Service a pending "Browse Files" request on the main thread. This
+        // switches to Contents Transfer mode, lists every image/video on the
+        // card, shows them in a popup, and downloads/opens the chosen file.
+        if (browseFilesRequested.exchange(false))
+        {
+            std::string saved = camera->browseAndDownloadContent(
+                [](const std::vector<std::string> &names)
+                { return showFileSelectPopup(names); });
+            if (!saved.empty())
+            {
+                std::cout << "Opening in default viewer: " << saved << "\n";
+                ShellExecuteA(NULL, "open", saved.c_str(), NULL, NULL, SW_SHOWNORMAL);
+            }
+            else
+            {
+                std::cout << "No file downloaded.\n";
             }
         }
     }
@@ -1273,20 +1320,9 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
     if (pointIn(pt, r.btnBrowseFiles))
     {
         std::cout << "[Browse Files] clicked\n";
-        // Switch to Contents Transfer mode, list every image/video on the card,
-        // show them in a popup, and download whichever file the user picks.
-        std::string saved = camera->browseAndDownloadContent(
-            [](const std::vector<std::string> &names)
-            { return showFileSelectPopup(names); });
-        if (!saved.empty())
-        {
-            std::cout << "Opening in default viewer: " << saved << "\n";
-            ShellExecuteA(NULL, "open", saved.c_str(), NULL, NULL, SW_SHOWNORMAL);
-        }
-        else
-        {
-            std::cout << "No file downloaded.\n";
-        }
+        // Defer the actual work to the main UI loop: the browse flow opens its
+        // own OpenCV window, which must not happen from inside this callback.
+        browseFilesRequested.store(true);
         return;
     }
     if (pointIn(pt, r.btnExit))
