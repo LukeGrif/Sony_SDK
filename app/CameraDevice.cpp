@@ -7144,20 +7144,15 @@ namespace cli
         }
     }
 
-    // Order two contents by capture time (dateChar), then by file name, so the
-    // newest shot compares "greater". The camera returns its contents list in
-    // raw MTP storage order, which is neither filename- nor time-sorted, so we
-    // must sort explicitly to find the real "latest" and to show a sensible
-    // Browse list.
-    static bool contentsOlderThan(const SDK::CrMtpContentsInfo *a,
-                                  const SDK::CrMtpContentsInfo *b)
+    // Order two contents by file name. The camera returns its contents list in
+    // raw MTP storage order, which has no useful ordering, so we sort by name
+    // (e.g. DSC08704 > DSC08701) to find the "latest" and to show a sensible
+    // Browse list. File name is used rather than the capture timestamp because
+    // the camera clock (and its file counter) can reset on a power cycle, which
+    // makes timestamps unreliable. Same-length names sort numerically.
+    static bool contentsNameLess(const SDK::CrMtpContentsInfo *a,
+                                 const SDK::CrMtpContentsInfo *b)
     {
-        text da(a->dateChar);
-        text db(b->dateChar);
-        if (da != db)
-        {
-            return da < db;
-        }
         text na(a->fileName);
         text nb(b->fileName);
         return na < nb;
@@ -7281,10 +7276,10 @@ namespace cli
             return std::string();
         }
 
-        // Pick the most recent matching file by capture time (dateChar), with the
-        // file name as a tie-breaker. The camera's list is in raw MTP order, not
-        // chronological, so we compare rather than taking the last entry. Stills
-        // are JPG/ARW/HIF; movies are MP4/MOV/MTS (Sony XAVC S records .MP4).
+        // Pick the highest-numbered matching file (e.g. DSC08704 over DSC08701).
+        // The camera's list is in raw MTP order, so we compare by name rather
+        // than taking the last entry. Stills are JPG/ARW/HIF; movies are
+        // MP4/MOV/MTS (Sony XAVC S records .MP4).
         SDK::CrMtpContentsInfo *latest = nullptr;
         for (SDK::CrMtpContentsInfo *pC : m_contentList)
         {
@@ -7307,7 +7302,7 @@ namespace cli
                         (0 == ext.compare(TEXT(".ARW"))) ||
                         (0 == ext.compare(TEXT(".HIF")));
             }
-            if (match && (nullptr == latest || contentsOlderThan(latest, pC)))
+            if (match && (nullptr == latest || contentsNameLess(latest, pC)))
             {
                 latest = pC;
             }
@@ -7378,9 +7373,9 @@ namespace cli
             return std::string();
         }
 
-        // Collect every image/video file, then sort newest-first by capture time
-        // (dateChar). The camera returns the list in raw MTP order, so without
-        // this the newest shot is not necessarily at the top.
+        // Collect every image/video file, then sort by name with the highest
+        // number first (e.g. DSC08704 at the top). The camera returns the list
+        // in raw MTP order, so without this there is no useful ordering.
         std::vector<SDK::CrMtpContentsInfo *> matches;
         for (SDK::CrMtpContentsInfo *pC : m_contentList)
         {
@@ -7405,7 +7400,7 @@ namespace cli
 
         std::sort(matches.begin(), matches.end(),
                   [](const SDK::CrMtpContentsInfo *a, const SDK::CrMtpContentsInfo *b)
-                  { return contentsOlderThan(b, a); }); // newest first
+                  { return contentsNameLess(b, a); }); // highest number first
 
         // Build parallel lists of display names, handles, and a still/movie flag.
         std::vector<std::string> names;
