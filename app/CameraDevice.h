@@ -17,6 +17,9 @@ typedef int errno_t;
 #include <cstdint>
 #include <condition_variable>
 #include <mutex>
+#include <functional>
+#include <string>
+#include <vector>
 #include "CRSDK/CameraRemote_SDK.h"
 #include "CRSDK/IDeviceCallback.h"
 #include "ConnectionInfo.h"
@@ -251,6 +254,14 @@ public:
     // Same as openLatestStill2M() but downloads the newest movie file at its
     // original size instead of a still image.
     std::string openLatestMovie();
+    // Switch into Contents Transfer mode, list every still/movie file on the
+    // card, and hand the file names to 'chooser'. The chooser returns the index
+    // of the file the user picked (or a negative value to cancel). The chosen
+    // file is then downloaded (stills as 2M, movies at original size) and its
+    // saved path returned (empty on cancel/failure). Switches back to the
+    // original mode afterwards so live view resumes.
+    std::string browseAndDownloadContent(
+        const std::function<int(const std::vector<std::string> &)> &chooser);
     void getFileNames(std::vector<text> &file_names);
     void pullContents(SCRSDK::CrContentHandle content);
     void getScreennail(SCRSDK::CrContentHandle content);
@@ -340,6 +351,16 @@ private:
     // newest still image is pulled as 2M.
     std::string openLatestContent(bool wantMovie);
     std::string pullLatestContent(bool wantMovie);
+    // Run 'action' with the camera in Contents Transfer mode, handling the
+    // temporary mode switch (and switch back) when the camera is currently in
+    // another mode. 'what' is used only for log messages.
+    std::string withContentsTransfer(const char *what,
+                                      const std::function<std::string()> &action);
+    // Fetch the contents list, present the file names to 'chooser', and
+    // download the picked file. Assumes the camera is already in Contents
+    // Transfer mode (call via browseAndDownloadContent()).
+    std::string listAndDownloadChosen(
+        const std::function<int(const std::vector<std::string> &)> &chooser);
     void get_property(SCRSDK::CrDeviceProperty& prop) const;
     bool set_property(SCRSDK::CrDeviceProperty& prop) const;
     text format_dispstrlist(SCRSDK::CrDisplayStringListInfo list);

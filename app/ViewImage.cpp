@@ -6,6 +6,8 @@
 #include <atomic>
 #include <algorithm>
 #include <filesystem>
+#include <functional>
+#include <vector>
 
 #define NOMINMAX
 #include <windows.h>
@@ -119,6 +121,7 @@ struct UIRects
     std::vector<cv::Rect> saveDestItems;
     cv::Rect btnOpenLatest;
     cv::Rect btnOpenLatestVideo;
+    cv::Rect btnBrowseFiles;
     cv::Rect btnExit;
 };
 
@@ -218,6 +221,9 @@ static UIRects makeLayout()
         for (int i = 0; i < 3; ++i)
             r.saveDestItems.push_back(cv::Rect(sdX, y + btnH + 6 + i * (itemH + itemGap), sdW, itemH));
     }
+
+    // Browse Files button, beside the Save To dropdown on the same row.
+    r.btnBrowseFiles = {sdX + sdW + colGap, y, btnW, btnH};
 
     return r;
 }
@@ -504,6 +510,7 @@ static void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &auto
 
     drawButton(settingsWindow, r.btnOpenLatest, "Latest Photo", {100, 180, 250}, {255, 255, 255});
     drawButton(settingsWindow, r.btnOpenLatestVideo, "Latest Video", {200, 120, 90}, {255, 255, 255});
+    drawButton(settingsWindow, r.btnBrowseFiles, "Browse Files", {150, 90, 190}, {255, 255, 255});
     drawButton(settingsWindow, r.btnExit, "Exit", {50, 50, 50}, {255, 255, 255});
 }
 
@@ -576,6 +583,147 @@ static std::string findLatestVideo(const std::string &folder)
     }
     return latestFile;
 }
+
+// ------------------- File-select popup -------------------
+// Modal popup that lists every image/video file name pulled from the camera and
+// lets the user click one to download. Returns the selected index, or -1 if the
+// user cancelled or closed the window.
+namespace
+{
+    const int POPUP_W = 620;
+    const int POPUP_H = 640;
+    const int POPUP_LIST_LEFT = 20;
+    const int POPUP_LIST_TOP = 70;
+    const int POPUP_ROW_H = 40;
+    const int POPUP_ROW_GAP = 4;
+    const int POPUP_VISIBLE = 12;
+    const int POPUP_LIST_W = POPUP_W - POPUP_LIST_LEFT - 40; // leave room for scrollbar
+
+    struct FilePopupState
+    {
+        const std::vector<std::string> *names = nullptr;
+        int scroll = 0;
+        int selected = -2; // -2 = still open, -1 = cancelled, >=0 = chosen
+        cv::Rect cancelBtn;
+    };
+
+    cv::Rect popupRowRect(int visibleIndex)
+    {
+        return cv::Rect(POPUP_LIST_LEFT,
+                        POPUP_LIST_TOP + visibleIndex * (POPUP_ROW_H + POPUP_ROW_GAP),
+                        POPUP_LIST_W, POPUP_ROW_H);
+    }
+
+    void onFilePopupMouse(int event, int x, int y, int flags, void *userdata)
+    {
+        auto *st = static_cast<FilePopupState *>(userdata);
+        const int total = static_cast<int>(st->names->size());
+        const int maxScroll = std::max(0, total - POPUP_VISIBLE);
+
+        if (event == cv::EVENT_MOUSEWHEEL || event == cv::EVENT_MOUSEHWHEEL)
+        {
+            int delta = cv::getMouseWheelDelta(flags);
+            if (delta > 0)
+                st->scroll = std::max(0, st->scroll - 1);
+            else if (delta < 0)
+                st->scroll = std::min(maxScroll, st->scroll + 1);
+            return;
+        }
+
+        if (event != cv::EVENT_LBUTTONDOWN)
+            return;
+
+        cv::Point pt{x, y};
+        if (st->cancelBtn.contains(pt))
+        {
+            st->selected = -1;
+            return;
+        }
+
+        int endIdx = std::min(st->scroll + POPUP_VISIBLE, total);
+        for (int vis = 0, i = st->scroll; i < endIdx; ++i, ++vis)
+        {
+            if (popupRowRect(vis).contains(pt))
+            {
+                st->selected = i;
+                return;
+            }
+        }
+    }
+
+    int showFileSelectPopup(const std::vector<std::string> &names)
+    {
+        FilePopupState st;
+        st.names = &names;
+        st.cancelBtn = cv::Rect(POPUP_LIST_LEFT, POPUP_H - 64, 180, 46);
+
+        const std::string win = "Camera Files";
+        cv::namedWindow(win, cv::WINDOW_NORMAL);
+        cv::resizeWindow(win, POPUP_W, POPUP_H);
+        cv::setMouseCallback(win, onFilePopupMouse, &st);
+
+        const int total = static_cast<int>(names.size());
+        const int maxScroll = std::max(0, total - POPUP_VISIBLE);
+
+        while (st.selected == -2)
+        {
+            cv::Mat canvas(POPUP_H, POPUP_W, CV_8UC3, cv::Scalar(245, 245, 245));
+
+            int baseline = 0;
+            std::string title = "Select a file to save (" + std::to_string(total) + ")";
+            cv::putText(canvas, title, {POPUP_LIST_LEFT, 40},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.9, {0, 0, 0}, 2, cv::LINE_AA);
+
+            int endIdx = std::min(st.scroll + POPUP_VISIBLE, total);
+            for (int vis = 0, i = st.scroll; i < endIdx; ++i, ++vis)
+            {
+                cv::Rect rc = popupRowRect(vis);
+                cv::rectangle(canvas, rc, {225, 225, 225}, cv::FILLED, cv::LINE_AA);
+                cv::rectangle(canvas, rc, {180, 180, 180}, 1, cv::LINE_AA);
+                std::string label = std::to_string(i + 1) + ".  " + names[i];
+                auto sz = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, 0.6, 1, &baseline);
+                cv::putText(canvas, label,
+                            {rc.x + 10, rc.y + (rc.height + sz.height) / 2},
+                            cv::FONT_HERSHEY_SIMPLEX, 0.6, {0, 0, 0}, 1, cv::LINE_AA);
+            }
+
+            // Scrollbar (only when the list is longer than the visible window).
+            if (total > POPUP_VISIBLE)
+            {
+                int barX = POPUP_LIST_LEFT + POPUP_LIST_W + 8;
+                int barY = POPUP_LIST_TOP;
+                int barW = 12;
+                int barH = (POPUP_ROW_H + POPUP_ROW_GAP) * POPUP_VISIBLE - POPUP_ROW_GAP;
+                cv::rectangle(canvas, cv::Rect(barX, barY, barW, barH), {200, 200, 200}, cv::FILLED, cv::LINE_AA);
+                float thumbFrac = float(POPUP_VISIBLE) / total;
+                int thumbH = std::max(int(barH * thumbFrac), 16);
+                int thumbY = barY + (maxScroll > 0 ? int((barH - thumbH) * (float(st.scroll) / maxScroll)) : 0);
+                cv::rectangle(canvas, cv::Rect(barX, thumbY, barW, thumbH), {110, 110, 110}, cv::FILLED, cv::LINE_AA);
+            }
+
+            std::string hint = "Scroll to see more. Click a file to download it.";
+            cv::putText(canvas, hint, {POPUP_LIST_LEFT, POPUP_H - 78},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.5, {90, 90, 90}, 1, cv::LINE_AA);
+
+            drawButton(canvas, st.cancelBtn, "Cancel", {50, 50, 50}, {255, 255, 255});
+
+            cv::imshow(win, canvas);
+            int key = cv::waitKey(30);
+            if ((key & 0xFF) == 27) // Esc
+            {
+                st.selected = -1;
+            }
+            // If the user closed the window with the X button, bail out too.
+            else if (cv::getWindowProperty(win, cv::WND_PROP_VISIBLE) < 1)
+            {
+                st.selected = -1;
+            }
+        }
+
+        cv::destroyWindow(win);
+        return st.selected;
+    }
+} // namespace
 
 // ------------------- ViewImage methods -------------------
 void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
@@ -1119,6 +1267,25 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
         else
         {
             std::cout << "No video available to open.\n";
+        }
+        return;
+    }
+    if (pointIn(pt, r.btnBrowseFiles))
+    {
+        std::cout << "[Browse Files] clicked\n";
+        // Switch to Contents Transfer mode, list every image/video on the card,
+        // show them in a popup, and download whichever file the user picks.
+        std::string saved = camera->browseAndDownloadContent(
+            [](const std::vector<std::string> &names)
+            { return showFileSelectPopup(names); });
+        if (!saved.empty())
+        {
+            std::cout << "Opening in default viewer: " << saved << "\n";
+            ShellExecuteA(NULL, "open", saved.c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+        else
+        {
+            std::cout << "No file downloaded.\n";
         }
         return;
     }

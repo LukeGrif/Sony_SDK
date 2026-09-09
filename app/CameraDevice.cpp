@@ -7156,14 +7156,20 @@ namespace cli
     std::string CameraDevice::openLatestContent(bool wantMovie)
     {
         const char *what = wantMovie ? "Open Latest Video" : "Open Latest";
+        return withContentsTransfer(what, [this, wantMovie]
+                                    { return pullLatestContent(wantMovie); });
+    }
 
+    std::string CameraDevice::withContentsTransfer(
+        const char *what, const std::function<std::string()> &action)
+    {
         // The GUI runs in Remote Control mode, but the "get contents" command
         // only works in Contents Transfer mode. If we are already in Contents
-        // Transfer mode just pull; otherwise switch to it, pull, then switch back
-        // so live view resumes.
+        // Transfer mode just run the action; otherwise switch to it, run, then
+        // switch back so live view resumes.
         if (SDK::CrSdkControlMode_ContentsTransfer == get_sdkmode())
         {
-            return pullLatestContent(wantMovie);
+            return action();
         }
 
         SDK::CrSdkControlMode originalMode = get_sdkmode();
@@ -7206,7 +7212,7 @@ namespace cli
 
             if (ready)
             {
-                savedPath = pullLatestContent(wantMovie);
+                savedPath = action();
             }
             else if (m_contentsTransferBlocked.load())
             {
@@ -7316,6 +7322,118 @@ namespace cli
         {
             std::unique_lock<std::mutex> lk(m_latestDownloadMtx);
             if (m_latestDownloadCv.wait_for(lk, timeout, [this] { return m_latestDownloadComplete; }))
+            {
+#if defined(_UNICODE) || defined(UNICODE)
+                savedPath.assign(m_latestDownloadFile.begin(), m_latestDownloadFile.end());
+#else
+                savedPath = m_latestDownloadFile;
+#endif
+            }
+            else
+            {
+                tout << what << ": timed out waiting for the download to finish.\n";
+            }
+            m_waitingLatestDownload = false;
+        }
+        return savedPath;
+    }
+
+    std::string CameraDevice::browseAndDownloadContent(
+        const std::function<int(const std::vector<std::string> &)> &chooser)
+    {
+        return withContentsTransfer("Browse Files", [this, &chooser]
+                                    { return listAndDownloadChosen(chooser); });
+    }
+
+    std::string CameraDevice::listAndDownloadChosen(
+        const std::function<int(const std::vector<std::string> &)> &chooser)
+    {
+        const char *what = "Browse Files";
+
+        // Run the same "get contents" command used by Contents Transfer mode.
+        if (!fetchContents())
+        {
+            tout << what << ": contents list is not available.\n";
+            return std::string();
+        }
+
+        // Build parallel lists of display names, handles, and a still/movie flag
+        // for every image/video file on the card. The list is ordered ascending
+        // (oldest first), matching what the CLI content browser shows.
+        std::vector<std::string> names;
+        std::vector<SDK::CrContentHandle> handles;
+        std::vector<bool> movieFlags;
+        for (SDK::CrMtpContentsInfo *pC : m_contentList)
+        {
+            text fname(pC->fileName);
+            if (fname.length() < 4)
+            {
+                continue;
+            }
+            text ext = fname.substr(fname.length() - 4, 4);
+            bool isMovie = (0 == ext.compare(TEXT(".MP4"))) ||
+                           (0 == ext.compare(TEXT(".MOV"))) ||
+                           (0 == ext.compare(TEXT(".MTS")));
+            bool isStill = (0 == ext.compare(TEXT(".JPG"))) ||
+                           (0 == ext.compare(TEXT(".ARW"))) ||
+                           (0 == ext.compare(TEXT(".HIF")));
+            if (!isMovie && !isStill)
+            {
+                continue;
+            }
+#if defined(_UNICODE) || defined(UNICODE)
+            std::string narrow(fname.begin(), fname.end());
+#else
+            std::string narrow(fname);
+#endif
+            names.push_back(narrow);
+            handles.push_back(pC->handle);
+            movieFlags.push_back(isMovie);
+        }
+
+        if (names.empty())
+        {
+            tout << what << ": no image or video files found.\n";
+            return std::string();
+        }
+
+        // Let the caller (GUI popup) present the names and pick one.
+        int choice = chooser(names);
+        if (choice < 0 || choice >= static_cast<int>(names.size()))
+        {
+            tout << what << ": selection cancelled.\n";
+            return std::string();
+        }
+
+        tout << what << ": downloading " << names[choice].c_str() << " ...\n";
+
+        // Arm the completion wait, then download the chosen content. Stills are
+        // pulled as 2M; movies are pulled at their original size.
+        bool wantMovie = movieFlags[choice];
+        {
+            std::lock_guard<std::mutex> lk(m_latestDownloadMtx);
+            m_waitingLatestDownload = true;
+            m_latestDownloadComplete = false;
+            m_latestDownloadFile.clear();
+        }
+
+        if (wantMovie)
+        {
+            pullContents(handles[choice]); // original size
+        }
+        else
+        {
+            getScreennail(handles[choice]); // 2M
+        }
+
+        // Movie files are much larger than a 2M still, so allow more time.
+        const auto timeout = wantMovie ? std::chrono::seconds(300) : std::chrono::seconds(60);
+
+        std::string savedPath;
+        {
+            std::unique_lock<std::mutex> lk(m_latestDownloadMtx);
+            if (m_latestDownloadCv.wait_for(lk, timeout, [this]
+                                            { return m_latestDownloadComplete; }))
             {
 #if defined(_UNICODE) || defined(UNICODE)
                 savedPath.assign(m_latestDownloadFile.begin(), m_latestDownloadFile.end());
