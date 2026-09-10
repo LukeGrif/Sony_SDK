@@ -83,6 +83,12 @@ static std::string intervalBuf = "3000";
 // inside the mouse callback.
 static std::atomic<bool> browseFilesRequested{false};
 
+// Set by the "Latest Photo" button in the mouse callback and serviced by the
+// main UI loop. Downloading the newest still and opening the zoomable viewer
+// both open their own OpenCV window, so (like Browse Files) this must run on
+// the main thread rather than inside the non-reentrant mouse callback.
+static std::atomic<bool> openLatestRequested{false};
+
 // Current read-only values (from camera)
 static std::wstring currentExposureMode;
 static std::wstring currentShutterSpeed;
@@ -753,6 +759,151 @@ namespace
     }
 } // namespace
 
+// ------------------- Zoomable image viewer -------------------
+// Opens an image in its own OpenCV window that supports mouse-wheel zoom
+// (centred on the cursor) and left-button click-drag panning. Blocks until the
+// user closes the window (Esc / X button). Must be called from the main UI
+// thread, since HighGUI is not reentrant.
+namespace
+{
+    struct ZoomViewState
+    {
+        cv::Mat image;      // source image
+        double scale = 1.0; // displayed pixels per source pixel
+        double tx = 0.0;     // translation: displayX = scale*srcX + tx
+        double ty = 0.0;
+        bool dragging = false;
+        int lastX = 0;
+        int lastY = 0;
+        double minScale = 0.05;
+        double maxScale = 40.0;
+    };
+
+    void onZoomViewMouse(int event, int x, int y, int flags, void *userdata)
+    {
+        auto *st = static_cast<ZoomViewState *>(userdata);
+
+        if (event == cv::EVENT_MOUSEWHEEL)
+        {
+            int delta = cv::getMouseWheelDelta(flags);
+            if (delta == 0)
+                return;
+            // Zoom factor per wheel notch.
+            double factor = (delta > 0) ? 1.15 : (1.0 / 1.15);
+            double newScale = st->scale * factor;
+            newScale = std::max(st->minScale, std::min(st->maxScale, newScale));
+            // Keep the source point under the cursor fixed on screen.
+            double srcX = (x - st->tx) / st->scale;
+            double srcY = (y - st->ty) / st->scale;
+            st->tx = x - newScale * srcX;
+            st->ty = y - newScale * srcY;
+            st->scale = newScale;
+            return;
+        }
+
+        if (event == cv::EVENT_LBUTTONDOWN)
+        {
+            st->dragging = true;
+            st->lastX = x;
+            st->lastY = y;
+            return;
+        }
+        if (event == cv::EVENT_LBUTTONUP)
+        {
+            st->dragging = false;
+            return;
+        }
+        if (event == cv::EVENT_MOUSEMOVE && st->dragging)
+        {
+            st->tx += (x - st->lastX);
+            st->ty += (y - st->lastY);
+            st->lastX = x;
+            st->lastY = y;
+            return;
+        }
+    }
+
+    void showZoomableImageWindow(const std::string &path)
+    {
+        cv::Mat img = cv::imread(path, cv::IMREAD_COLOR);
+        if (img.empty())
+        {
+            std::cout << "Could not load image for viewing: " << path << "\n";
+            return;
+        }
+
+        const int winW = 1000;
+        const int winH = 700;
+
+        ZoomViewState st;
+        st.image = img;
+        // Start zoomed to fit the image inside the window.
+        double fit = std::min(double(winW) / img.cols, double(winH) / img.rows);
+        st.scale = std::min(1.0, fit);
+        // Centre the image in the window.
+        st.tx = (winW - st.scale * img.cols) / 2.0;
+        st.ty = (winH - st.scale * img.rows) / 2.0;
+        // Allow zooming out a bit further than the fit scale.
+        st.minScale = std::min(st.minScale, fit * 0.5);
+
+        const std::string win = "Image Viewer  -  scroll to zoom, drag to pan, Esc to close";
+        cv::namedWindow(win, cv::WINDOW_NORMAL);
+        cv::resizeWindow(win, winW, winH);
+        cv::setMouseCallback(win, onZoomViewMouse, &st);
+
+        while (true)
+        {
+            cv::Mat canvas(winH, winW, CV_8UC3, cv::Scalar(30, 30, 30));
+            cv::Mat M = (cv::Mat_<double>(2, 3) << st.scale, 0, st.tx, 0, st.scale, st.ty);
+            cv::warpAffine(st.image, canvas, M, canvas.size(),
+                           cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(30, 30, 30));
+
+            // On-screen hint.
+            std::string hint = "Scroll: zoom   Drag: pan   R: reset   Esc: close";
+            cv::putText(canvas, hint, {14, winH - 16},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.55, {0, 0, 0}, 3, cv::LINE_AA);
+            cv::putText(canvas, hint, {14, winH - 16},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.55, {255, 255, 255}, 1, cv::LINE_AA);
+
+            cv::imshow(win, canvas);
+            int key = cv::waitKey(20);
+            int k = key & 0xFF;
+            if (k == 27) // Esc
+                break;
+            if (k == 'r' || k == 'R')
+            {
+                // Reset back to the initial fit view.
+                st.scale = std::min(1.0, fit);
+                st.tx = (winW - st.scale * img.cols) / 2.0;
+                st.ty = (winH - st.scale * img.rows) / 2.0;
+            }
+
+            // Bail out if the user closed the window with the X button.
+            double vis = -1.0;
+            try
+            {
+                vis = cv::getWindowProperty(win, cv::WND_PROP_VISIBLE);
+            }
+            catch (const cv::Exception &)
+            {
+                vis = -1.0;
+            }
+            if (vis < 1.0)
+                break;
+        }
+
+        try
+        {
+            if (cv::getWindowProperty(win, cv::WND_PROP_VISIBLE) >= 0.0)
+                cv::destroyWindow(win);
+        }
+        catch (const cv::Exception &)
+        {
+            // Window already gone; nothing to do.
+        }
+    }
+} // namespace
+
 // ------------------- ViewImage methods -------------------
 void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
                       std::atomic<bool> &exitFlag,
@@ -893,6 +1044,30 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
             else
             {
                 std::cout << "No file downloaded.\n";
+            }
+        }
+
+        // Service a pending "Latest Photo" request on the main thread. Download
+        // the newest still and open it in the zoomable viewer window, which lets
+        // the user scroll to zoom and drag to pan around the image.
+        if (openLatestRequested.exchange(false))
+        {
+            // Run the Contents Transfer "get contents" command, download the
+            // newest still as 2M into the working (Release) folder, and open it.
+            std::string latest = camera->openLatestStill2M();
+            if (latest.empty())
+            {
+                // Fall back to the newest DSCxxxxx.JPG already in the working folder.
+                latest = findLatestDSCImage(fs::current_path().string());
+            }
+            if (!latest.empty())
+            {
+                std::cout << "Opening in zoomable viewer: " << latest << "\n";
+                showZoomableImageWindow(latest);
+            }
+            else
+            {
+                std::cout << "No still image available to open.\n";
             }
         }
     }
@@ -1276,23 +1451,10 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
     if (pointIn(pt, r.btnOpenLatest))
     {
         std::cout << "[Open Latest] clicked\n";
-        // Run the Contents Transfer "get contents" command, download the newest
-        // still as 2M into the working (Release) folder, and open it.
-        std::string latest = camera->openLatestStill2M();
-        if (latest.empty())
-        {
-            // Fall back to the newest DSCxxxxx.JPG already in the working folder.
-            latest = findLatestDSCImage(fs::current_path().string());
-        }
-        if (!latest.empty())
-        {
-            std::cout << "Opening in default viewer: " << latest << "\n";
-            ShellExecuteA(NULL, "open", latest.c_str(), NULL, NULL, SW_SHOWNORMAL);
-        }
-        else
-        {
-            std::cout << "No still image available to open.\n";
-        }
+        // Defer the actual work to the main UI loop: downloading the still and
+        // opening the zoomable viewer both create their own OpenCV window, which
+        // must not happen from inside this callback.
+        openLatestRequested.store(true);
         return;
     }
     if (pointIn(pt, r.btnOpenLatestVideo))
