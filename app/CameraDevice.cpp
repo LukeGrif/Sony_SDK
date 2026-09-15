@@ -1901,6 +1901,47 @@ namespace cli
         return index;
     }
 
+    void CameraDevice::set_still_file_type(int index)
+    {
+        SDK::CrDeviceProperty prop;
+        prop.SetCode(SDK::CrDevicePropertyCode::CrDeviceProperty_FileType);
+        prop.SetValueType(SDK::CrDataType::CrDataType_UInt16Array);
+
+        switch (index)
+        {
+        case 0: prop.SetCurrentValue(SDK::CrFileType::CrFileType_Jpeg); break;
+        case 1: prop.SetCurrentValue(SDK::CrFileType::CrFileType_Raw); break;
+        case 2: prop.SetCurrentValue(SDK::CrFileType::CrFileType_RawJpeg); break;
+        default: tout << "Invalid file format index\n"; return;
+        }
+
+        SDK::SetDeviceProperty(m_device_handle, &prop);
+    }
+
+    int CameraDevice::get_still_file_type()
+    {
+        std::int32_t nprop = 0;
+        SDK::CrDeviceProperty *prop_list = nullptr;
+        CrInt32u getCode = SDK::CrDevicePropertyCode::CrDeviceProperty_FileType;
+        SDK::CrError res = SDK::GetSelectDeviceProperties(m_device_handle, 1, &getCode, &prop_list, &nprop);
+        int index = -1;
+        if (CR_SUCCEEDED(res) && (1 == nprop) && (getCode == prop_list[0].GetCode()))
+        {
+            switch (prop_list[0].GetCurrentValue())
+            {
+            case SDK::CrFileType::CrFileType_Jpeg: index = 0; break;
+            case SDK::CrFileType::CrFileType_Raw: index = 1; break;
+            case SDK::CrFileType::CrFileType_RawJpeg: index = 2; break;
+            default: break;
+            }
+        }
+        if (nullptr != prop_list)
+        {
+            SDK::ReleaseDeviceProperties(m_device_handle, prop_list);
+        }
+        return index;
+    }
+
     bool CameraDevice::set_save_info() const
     {
 #if defined(__APPLE__)

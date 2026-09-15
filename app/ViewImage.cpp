@@ -72,6 +72,12 @@ static std::vector<std::string> saveDestOptions = {"PC", "Camera", "Both"};
 static int currentSaveDestIndex = 0;
 static bool showSaveDestDropdown = false;
 
+// Still-image file-format dropdown state. Indices map to CrFileType in
+// CameraDevice::set_still_file_type: 0=JPEG, 1=RAW, 2=RAW+JPEG.
+static std::vector<std::string> fileFormatOptions = {"JPEG", "RAW", "RAW+JPEG"};
+static int currentFileFormatIndex = 0;
+static bool showFileFormatDropdown = false;
+
 // Interval input state
 static std::atomic<int> autoIntervalMs{3000};
 static bool editingInterval = false;
@@ -125,6 +131,8 @@ struct UIRects
     cv::Rect btnMovieRec;
     cv::Rect saveDestBox;
     std::vector<cv::Rect> saveDestItems;
+    cv::Rect fileFormatBox;
+    std::vector<cv::Rect> fileFormatItems;
     cv::Rect btnOpenLatest;
     cv::Rect btnOpenLatestVideo;
     cv::Rect btnBrowseFiles;
@@ -133,7 +141,7 @@ struct UIRects
 
 // Smaller control-centre window
 static const int CC_WIDTH = 1120;
-static const int CC_HEIGHT = 600;
+static const int CC_HEIGHT = 700;
 
 static UIRects makeLayout()
 {
@@ -230,6 +238,15 @@ static UIRects makeLayout()
 
     // Browse Files button, beside the Save To dropdown on the same row.
     r.btnBrowseFiles = {sdX + sdW + colGap, y, btnW, btnH};
+
+    // Next row: still-image file-format dropdown (JPEG / RAW / RAW+JPEG).
+    y += btnH + gapY;
+    r.fileFormatBox = {leftX, y, btnW, btnH};
+    {
+        const int itemH = 34, itemGap = 4;
+        for (int i = 0; i < 3; ++i)
+            r.fileFormatItems.push_back(cv::Rect(leftX, y + btnH + 6 + i * (itemH + itemGap), btnW, itemH));
+    }
 
     return r;
 }
@@ -509,6 +526,32 @@ static void drawControlCentreUI(cv::Mat &settingsWindow, std::atomic<bool> &auto
             int bl = 0;
             auto sz2 = cv::getTextSize(saveDestOptions[i], cv::FONT_HERSHEY_SIMPLEX, 0.85, 2, &bl);
             cv::putText(settingsWindow, saveDestOptions[i],
+                        {itemRc.x + 10, itemRc.y + (itemRc.height + sz2.height) / 2},
+                        cv::FONT_HERSHEY_SIMPLEX, 0.85, {0, 0, 0}, 2, cv::LINE_AA);
+        }
+    }
+
+    // File format dropdown
+    drawLabelAbove(settingsWindow, r.fileFormatBox, "File Format");
+    cv::rectangle(settingsWindow, r.fileFormatBox, {200, 200, 200}, cv::FILLED, cv::LINE_AA);
+    {
+        int bl = 0;
+        std::string ffLabel = fileFormatOptions[currentFileFormatIndex];
+        auto ffSz = cv::getTextSize(ffLabel, cv::FONT_HERSHEY_SIMPLEX, 0.85, 2, &bl);
+        cv::putText(settingsWindow, ffLabel,
+                    {r.fileFormatBox.x + 10, r.fileFormatBox.y + (r.fileFormatBox.height + ffSz.height) / 2},
+                    cv::FONT_HERSHEY_SIMPLEX, 0.85, {0, 0, 0}, 2, cv::LINE_AA);
+    }
+    if (showFileFormatDropdown)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            const auto &itemRc = r.fileFormatItems[i];
+            cv::Scalar bg = (i == currentFileFormatIndex) ? cv::Scalar(160, 210, 160) : cv::Scalar(220, 220, 220);
+            cv::rectangle(settingsWindow, itemRc, bg, cv::FILLED, cv::LINE_AA);
+            int bl = 0;
+            auto sz2 = cv::getTextSize(fileFormatOptions[i], cv::FONT_HERSHEY_SIMPLEX, 0.85, 2, &bl);
+            cv::putText(settingsWindow, fileFormatOptions[i],
                         {itemRc.x + 10, itemRc.y + (itemRc.height + sz2.height) / 2},
                         cv::FONT_HERSHEY_SIMPLEX, 0.85, {0, 0, 0}, 2, cv::LINE_AA);
         }
@@ -807,6 +850,15 @@ void ViewImage::runUI(std::shared_ptr<cli::CameraDevice> camera,
                 if (dest >= 0)
                     currentSaveDestIndex = dest;
             }
+
+            // Mirror the camera's actual still-image file format in the dropdown.
+            // Leave the current selection untouched while the dropdown is open.
+            if (!showFileFormatDropdown)
+            {
+                int fmt = camera->get_still_file_type();
+                if (fmt >= 0)
+                    currentFileFormatIndex = fmt;
+            }
         }
 
         // Load the background image
@@ -984,6 +1036,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showApertureDropdown = false;
             showISODropdown = false;
             showExposureDropdown = false;
+            showFileFormatDropdown = false;
         }
         return;
     }
@@ -1004,6 +1057,38 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
         return;
     }
 
+    // File format dropdown toggle
+    if (pointIn(pt, r.fileFormatBox))
+    {
+        showFileFormatDropdown = !showFileFormatDropdown;
+        if (showFileFormatDropdown)
+        {
+            showDropdown = false;
+            showShutterDropdown = false;
+            showApertureDropdown = false;
+            showISODropdown = false;
+            showExposureDropdown = false;
+            showSaveDestDropdown = false;
+        }
+        return;
+    }
+    if (showFileFormatDropdown)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            if (pointIn(pt, r.fileFormatItems[i]))
+            {
+                currentFileFormatIndex = i;
+                camera->set_still_file_type(i);
+                showFileFormatDropdown = false;
+                std::cout << "[File Format] Set to: " << fileFormatOptions[i] << "\n";
+                return;
+            }
+        }
+        showFileFormatDropdown = false;
+        return;
+    }
+
     // Focus dropdown toggle
     if (pointIn(pt, r.dropdownBox))
     {
@@ -1015,6 +1100,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showISODropdown = false;
             showExposureDropdown = false;
             showSaveDestDropdown = false;
+            showFileFormatDropdown = false;
         }
         return;
     }
@@ -1046,6 +1132,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showApertureDropdown = false;
             showISODropdown = false;
             showSaveDestDropdown = false;
+            showFileFormatDropdown = false;
         }
         return;
     }
@@ -1097,6 +1184,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showISODropdown = false;
             showExposureDropdown = false;
             showSaveDestDropdown = false;
+            showFileFormatDropdown = false;
         }
         return;
     }
@@ -1148,6 +1236,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showISODropdown = false;
             showExposureDropdown = false;
             showSaveDestDropdown = false;
+            showFileFormatDropdown = false;
         }
         return;
     }
@@ -1199,6 +1288,7 @@ void ViewImage::onMouse(int event, int x, int y, int flags, void *userdata)
             showApertureDropdown = false;
             showExposureDropdown = false;
             showSaveDestDropdown = false;
+            showFileFormatDropdown = false;
         }
         return;
     }

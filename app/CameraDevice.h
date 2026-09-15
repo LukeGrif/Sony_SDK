@@ -150,6 +150,12 @@ public:
     // Read the current still-image save destination from the camera and map it
     // to the dropdown index (0=PC, 1=Camera, 2=Both). Returns -1 if unavailable.
     int get_still_image_store_destination();
+    // Choose the still-image file format the camera records:
+    // 0=JPEG, 1=RAW, 2=RAW+JPEG.
+    void set_still_file_type(int index);
+    // Read the current still-image file format from the camera and map it to the
+    // dropdown index (0=JPEG, 1=RAW, 2=RAW+JPEG). Returns -1 if unavailable.
+    int get_still_file_type();
     bool set_save_info() const;
     void set_shutter_speed();
     void set_shutter_speed_new(const std::wstring &label, int index);
