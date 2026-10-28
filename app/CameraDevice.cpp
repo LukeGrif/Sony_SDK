@@ -533,17 +533,16 @@ namespace cli
         return format_focus_area(m_prop.focus_area.current);
     }
 
-    void CameraDevice::get_live_view_only()
+    SDK::CrError CameraDevice::get_live_view_jpeg(std::vector<std::uint8_t> &jpeg)
     {
-        tout << "GetLiveView...\n";
+        jpeg.clear();
 
         CrInt32 num = 0;
         SDK::CrLiveViewProperty *property = nullptr;
         auto err = SDK::GetLiveViewProperties(m_device_handle, &property, &num);
         if (CR_FAILED(err))
         {
-            tout << "GetLiveView FAILED\n";
-            return;
+            return err;
         }
         SDK::ReleaseLiveViewProperties(m_device_handle, property);
 
@@ -551,40 +550,42 @@ namespace cli
         err = SDK::GetLiveViewImageInfo(m_device_handle, &inf);
         if (CR_FAILED(err))
         {
-            tout << "GetLiveView FAILED\n";
-            return;
+            return err;
         }
 
         CrInt32u bufSize = inf.GetBufferSize();
         if (bufSize < 1)
         {
-            tout << "GetLiveView FAILED \n";
-            return;
+            return SDK::CrError_Generic;
         }
 
-        SDK::CrImageDataBlock *image_data = nullptr;
-        CrInt8u *image_buff = nullptr;
-
-        image_data = new SDK::CrImageDataBlock();
-        if (!image_data)
-        {
-            // FAILED
-            tout << "GetLiveView FAILED (new CrImageDataBlock class)\n";
-            return;
-        }
-        image_buff = new CrInt8u[bufSize];
-        if (!image_buff)
-        {
-            // FAILED
-            tout << "GetLiveView FAILED (new Image buffer)\n";
-            delete image_data; // Release
-            return;
-        }
-        image_data->SetSize(bufSize);
-        image_data->SetData(image_buff);
+        std::vector<CrInt8u> image_buff(bufSize);
+        SDK::CrImageDataBlock image_data;
+        image_data.SetSize(bufSize);
+        image_data.SetData(image_buff.data());
 
         // Get the LiveViewImage
-        err = SDK::GetLiveViewImage(m_device_handle, image_data);
+        err = SDK::GetLiveViewImage(m_device_handle, &image_data);
+        if (CR_FAILED(err))
+        {
+            return err;
+        }
+
+        if (0 == image_data.GetSize())
+        {
+            return SDK::CrError_Generic;
+        }
+
+        jpeg.assign(image_data.GetImageData(), image_data.GetImageData() + image_data.GetImageSize());
+        return SDK::CrError_None;
+    }
+
+    void CameraDevice::get_live_view_only()
+    {
+        tout << "GetLiveView...\n";
+
+        std::vector<std::uint8_t> jpeg;
+        auto err = get_live_view_jpeg(jpeg);
         if (CR_FAILED(err))
         {
             // FAILED
@@ -596,17 +597,10 @@ namespace cli
             {
                 tout << "Warning. GetLiveView Memory insufficient\n";
             }
-            delete[] image_buff; // Release
-            delete image_data;   // Release
-            return;
-        }
-
-        if (0 == image_data->GetSize())
-        {
-            // FAILED
-            tout << "GetLiveView FAILED Image size=0\n";
-            delete[] image_buff; // Release
-            delete image_data;   // Release
+            else
+            {
+                tout << "GetLiveView FAILED\n";
+            }
             return;
         }
 
@@ -618,8 +612,6 @@ namespace cli
         if (NULL == getcwd(path, sizeof(path) - 1))
         {
             // FAILED
-            delete[] image_buff; // Release
-            delete image_data;   // Release
             tout << "Folder path is too long.\n";
             return;
         }
@@ -627,8 +619,6 @@ namespace cli
         if (strlen(path) + strlen(filename) > MAC_MAX_PATH)
         {
             // FAILED
-            delete[] image_buff; // Release
-            delete image_data;   // Release
             tout << "Failed to create save path.\n";
             return;
         }
@@ -642,12 +632,10 @@ namespace cli
         std::ofstream file(path, std::ios::out | std::ios::binary);
         if (!file.bad())
         {
-            file.write((char *)image_data->GetImageData(), image_data->GetImageSize());
+            file.write((char *)jpeg.data(), jpeg.size());
             file.close();
         }
         tout << "GetLiveView SUCCESS\n";
-        delete[] image_buff; // Release
-        delete image_data;   // Release
     }
 
     void CameraDevice::get_live_view_and_OSD()
@@ -1923,6 +1911,32 @@ namespace cli
             tout << "Failed to set save path.\n";
             return false;
         }
+        return true;
+    }
+
+    bool CameraDevice::set_save_info(const text &dir, const text &prefix, int start_no) const
+    {
+        text path = dir;
+        if (path.empty())
+        {
+            path = fs::current_path().native();
+        }
+
+        std::error_code ec;
+        fs::create_directories(fs::path(path), ec);
+        if (ec)
+        {
+            tout << "Failed to create save folder: " << path << '\n';
+            return false;
+        }
+
+        auto save_status = SDK::SetSaveInfo(m_device_handle, const_cast<text_char *>(path.c_str()), const_cast<text_char *>(prefix.c_str()), start_no);
+        if (CR_FAILED(save_status))
+        {
+            tout << "Failed to set save path: 0x" << std::hex << save_status << std::dec << '\n';
+            return false;
+        }
+        tout << "Images will be saved to: " << path << '\n';
         return true;
     }
 
@@ -5479,14 +5493,98 @@ namespace cli
         // tout << "LvProperty changed.\n";
     }
 
+    void CameraDevice::set_download_listener(std::function<void(const text &)> listener)
+    {
+        std::lock_guard<std::mutex> lk(m_downloadListenerMtx);
+        m_downloadListener = std::move(listener);
+    }
+
+    namespace
+    {
+        // Format every possible value of a property entry for display.
+        template <typename T, typename Fmt>
+        void collect_setting(const PropertyValueEntry<T> &entry, Fmt format, text &current, std::vector<text> &options, bool &writable)
+        {
+            current = format(entry.current);
+            options.clear();
+            for (auto value : entry.possible)
+            {
+                options.push_back(format(value));
+            }
+            writable = (1 == entry.writable);
+        }
+    } // namespace
+
+    bool CameraDevice::get_setting_options(Setting setting, text &current, std::vector<text> &options, bool &writable)
+    {
+        load_properties();
+        int supported = -1;
+        switch (setting)
+        {
+        case Setting::Iso:
+            supported = m_prop.iso_sensitivity.writable;
+            collect_setting(m_prop.iso_sensitivity, format_iso_sensitivity, current, options, writable);
+            break;
+        case Setting::ShutterSpeed:
+            supported = m_prop.shutter_speed.writable;
+            collect_setting(m_prop.shutter_speed, format_shutter_speed, current, options, writable);
+            break;
+        case Setting::Aperture:
+            supported = m_prop.f_number.writable;
+            collect_setting(m_prop.f_number, format_f_number, current, options, writable);
+            break;
+        case Setting::ExposureMode:
+            supported = m_prop.exposure_program_mode.writable;
+            collect_setting(m_prop.exposure_program_mode, format_exposure_program_mode, current, options, writable);
+            break;
+        case Setting::FocusMode:
+            supported = m_prop.focus_mode.writable;
+            collect_setting(m_prop.focus_mode, format_focus_mode, current, options, writable);
+            break;
+        }
+        return -1 != supported;
+    }
+
+    bool CameraDevice::set_setting(Setting setting, int index)
+    {
+        // Refresh so 'index' refers to the same list get_setting_options() returned.
+        load_properties();
+        switch (setting)
+        {
+        case Setting::Iso:
+            set_iso_new(std::wstring(), index);
+            return true;
+        case Setting::ShutterSpeed:
+            set_shutter_speed_new(std::wstring(), index);
+            return true;
+        case Setting::Aperture:
+            set_aperture_new(std::wstring(), index);
+            return true;
+        case Setting::ExposureMode:
+            set_exposure_program_mode_new(std::wstring(), index);
+            return true;
+        case Setting::FocusMode:
+            set_focus_mode_new(std::wstring(), index);
+            return true;
+        }
+        return false;
+    }
+
     void CameraDevice::OnCompleteDownload(CrChar *filename, CrInt32u type)
     {
         text file(filename);
         switch (type)
         {
         case SCRSDK::CrDownloadSettingFileType_None:
+        {
             tout << "Complete download. File: " << file.data() << '\n';
+            std::lock_guard<std::mutex> lk(m_downloadListenerMtx);
+            if (m_downloadListener)
+            {
+                m_downloadListener(file);
+            }
             break;
+        }
         case SCRSDK::CrDownloadSettingFileType_Setup:
             tout << "Complete download. Camera Setting File: " << file.data() << '\n';
             break;

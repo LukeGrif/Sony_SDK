@@ -18,15 +18,34 @@ include(enum_cli_hdr)
 include(enum_cli_src)
 include(enum_crsdk_hdr)
 
-### Define output target ###
+### Define output targets ###
+# RemoteCli: the original console/OpenCV app (RemoteCli.exe).
 set(remotecli "${PROJECT_NAME}")
 add_executable(${remotecli}
     ${cli_hdrs}
     ${cli_srcs}
     ${crsdk_hdrs}
+    app/RemoteCli.cpp
     app/ViewImage.cpp
     
 )
+
+# SonyCam: the same camera code as a shared library (SonyCam.dll /
+# libSonyCam.so) with the plain C API in SonyCamApi.h, so the Python GUI can
+# load it with ctypes and call the camera directly.
+set(sonycam "SonyCam")
+add_library(${sonycam} SHARED
+    ${cli_hdrs}
+    ${cli_srcs}
+    ${crsdk_hdrs}
+    app/SonyCamApi.h
+    app/SonyCamApi.cpp
+)
+# Build one after the other: both copy the SDK runtime into the same folder.
+add_dependencies(${sonycam} ${remotecli})
+
+# Everything below applies to both targets.
+foreach(remotecli ${remotecli} ${sonycam})
 
 if(APPLE)
     set_target_properties(${remotecli} PROPERTIES
@@ -176,3 +195,5 @@ if(APPLE)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/external/opencv/Darwin/Release/macos/bin/libopencv_imgproc.408.dylib" $<TARGET_FILE_DIR:${remotecli}>
     )
 endif(APPLE)
+
+endforeach()

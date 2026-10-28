@@ -99,6 +99,9 @@ public:
     std::wstring get_focus_area_output();
     void get_live_view();
     void get_live_view_only();
+    // Fetch one live view frame as JPEG bytes in memory (no file is written).
+    // Returns the SDK error code; CrWarning_Frame_NotUpdated means no new frame yet.
+    SCRSDK::CrError get_live_view_jpeg(std::vector<std::uint8_t> &jpeg);
     void get_live_view_and_OSD();
     void get_live_view_image_quality();
     void get_af_area_position();
@@ -151,6 +154,10 @@ public:
     // to the dropdown index (0=PC, 1=Camera, 2=Both). Returns -1 if unavailable.
     int get_still_image_store_destination();
     bool set_save_info() const;
+    // Set the PC folder (created if missing) and file name prefix used for
+    // images the camera transfers to the host. An empty dir means the
+    // current working directory; start_no -1 lets the camera number files.
+    bool set_save_info(const text &dir, const text &prefix, int start_no) const;
     void set_shutter_speed();
     void set_shutter_speed_new(const std::wstring &label, int index);
     void set_extended_shutter_speed();
@@ -240,6 +247,25 @@ public:
     void set_zoom_position_setting();
 
     std::int32_t get_number() { return m_number; }
+
+    // Called on an SDK thread with the full path of every image the camera
+    // finishes transferring to the PC (see OnCompleteDownload).
+    void set_download_listener(std::function<void(const text &)> listener);
+
+    // Exposure/focus settings exposed to the SonyCam API (GUI integration).
+    enum class Setting
+    {
+        Iso,
+        ShutterSpeed,
+        Aperture,
+        ExposureMode,
+        FocusMode
+    };
+    // Current value and selectable values of a setting as display strings.
+    // Returns false if the camera does not report the setting.
+    bool get_setting_options(Setting setting, text &current, std::vector<text> &options, bool &writable);
+    // Select options[index] as returned by get_setting_options().
+    bool set_setting(Setting setting, int index);
     text get_model() { return text(m_info->GetModel()); }
     text get_id();
 
@@ -418,6 +444,10 @@ private:
     text m_latestDownloadFile;
     // Set by OnWarning when the camera reports it cannot transfer content.
     std::atomic<bool> m_contentsTransferBlocked{false};
+
+    // Notified from OnCompleteDownload with each saved file path.
+    std::mutex m_downloadListenerMtx;
+    std::function<void(const text &)> m_downloadListener;
 };
 } // namespace cli
 

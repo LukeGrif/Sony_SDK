@@ -163,6 +163,37 @@ windows:
 
 ---
 
+## 🔌 SonyCam library (use the camera from Python / another app)
+
+The same build also produces **`SonyCam.dll`** (`libSonyCam.so` on Linux): the
+`cli::CameraDevice` code compiled as a shared library with a small C API in
+[`app/SonyCamApi.h`](app/SonyCamApi.h). Instead of launching `RemoteCli.exe` and
+reading its console output, a host program loads the library and calls the camera
+directly. The CRIS GUI (`CRIS_Sony_ILX_Interface`, `sony_camera.py`) uses it through
+Python `ctypes`.
+
+`cmake --build . --config Release` builds both targets into `build/Release/`:
+`RemoteCli.exe` and `SonyCam.dll` (plus the SDK and OpenCV DLLs they need). Copy
+`SonyCam.dll` into the GUI's `Release/` folder next to `Cr_Core.dll` and `CrAdapter/`.
+To build only the library: `cmake --build . --config Release --target SonyCam`.
+
+| Function | What it does |
+|---|---|
+| `sonycam_init()` / `sonycam_shutdown()` | `SDK::Init()` / disconnect + `SDK::Release()` |
+| `sonycam_connect(index, timeout_ms)` | enumerate cameras, connect in Remote mode, wait for `OnConnected` |
+| `sonycam_capture()` | shutter down/up (`CameraDevice::capture_image`) |
+| `sonycam_get_live_view(buf, len)` | latest live view JPEG copied into `buf` (no file written) |
+| `sonycam_set_save_info(dir, prefix, start_no)` | where PC copies of images are saved (`SDK::SetSaveInfo`) |
+| `sonycam_set/get_store_destination(i)` | 0 = PC, 1 = card, 2 = PC + card |
+| `sonycam_get_setting` / `sonycam_set_setting` | ISO, shutter, aperture, exposure mode, focus mode: current value + options |
+| `sonycam_set_download_callback(cb)` | `cb(path)` for every image saved on the PC (`OnCompleteDownload`) |
+| `sonycam_set_log_callback(cb)` | `cb(line)` for everything the camera code prints to `cli::tout` |
+
+All strings are UTF-8; functions return `0` or a negative `SONYCAM_ERR_*`. Calls are
+serialised internally, and callbacks run on SDK threads (keep them short).
+
+---
+
 ## 🧪 Integration Notes
 
 - The UI does **not** own camera transport; it just **calls** your `cli::CameraDevice` API.  
