@@ -131,12 +131,20 @@ namespace
 
     std::mutex g_download_cb_mtx;
     sonycam_text_callback g_download_cb = nullptr;
+    sonycam_event_callback g_capture_cb = nullptr;
 
     void notify_download(const cli::text &path)
     {
         std::lock_guard<std::mutex> lk(g_download_cb_mtx);
         if (g_download_cb)
             g_download_cb(to_utf8(path).c_str());
+    }
+
+    void notify_capture()
+    {
+        std::lock_guard<std::mutex> lk(g_download_cb_mtx);
+        if (g_capture_cb)
+            g_capture_cb();
     }
 
     void log_line(const std::string &line)
@@ -154,6 +162,7 @@ namespace
         if (!g_camera)
             return;
         g_camera->set_download_listener(nullptr);
+        g_camera->set_capture_listener(nullptr);
         if (g_camera->is_connected())
         {
             g_camera->disconnect();
@@ -206,6 +215,12 @@ extern "C"
     {
         std::lock_guard<std::mutex> lk(g_download_cb_mtx);
         g_download_cb = cb;
+    }
+
+    SONYCAM_API void sonycam_set_capture_callback(sonycam_event_callback cb)
+    {
+        std::lock_guard<std::mutex> lk(g_download_cb_mtx);
+        g_capture_cb = cb;
     }
 
     SONYCAM_API int sonycam_init(void)
@@ -266,9 +281,11 @@ extern "C"
         camera_list->Release();
 
         camera->set_download_listener(notify_download);
+        camera->set_capture_listener(notify_capture);
         if (!camera->connect(SDK::CrSdkControlMode_Remote, SDK::CrReconnecting_ON))
         {
             camera->set_download_listener(nullptr);
+            camera->set_capture_listener(nullptr);
             return SONYCAM_ERR_CONNECT;
         }
 

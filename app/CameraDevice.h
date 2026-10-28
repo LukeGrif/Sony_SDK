@@ -252,6 +252,10 @@ public:
     // finishes transferring to the PC (see OnCompleteDownload).
     void set_download_listener(std::function<void(const text &)> listener);
 
+    // Called on an SDK thread each time the camera has saved a shot to its
+    // own memory (CrNotify_Captured_Event), whatever the store destination.
+    void set_capture_listener(std::function<void()> listener);
+
     // Exposure/focus settings exposed to the SonyCam API (GUI integration).
     enum class Setting
     {
@@ -448,6 +452,7 @@ private:
     // Notified from OnCompleteDownload with each saved file path.
     std::mutex m_downloadListenerMtx;
     std::function<void(const text &)> m_downloadListener;
+    std::function<void()> m_captureListener;
 };
 } // namespace cli
 

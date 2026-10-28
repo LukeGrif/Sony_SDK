@@ -5499,6 +5499,12 @@ namespace cli
         m_downloadListener = std::move(listener);
     }
 
+    void CameraDevice::set_capture_listener(std::function<void()> listener)
+    {
+        std::lock_guard<std::mutex> lk(m_downloadListenerMtx);
+        m_captureListener = std::move(listener);
+    }
+
     namespace
     {
         // Format every possible value of a property entry for display.
@@ -5642,6 +5648,16 @@ namespace cli
         }
         switch (warning)
         {
+        case SDK::CrNotify_Captured_Event:
+        {
+            // The camera has saved a shot to its memory
+            std::lock_guard<std::mutex> lk(m_downloadListenerMtx);
+            if (m_captureListener)
+            {
+                m_captureListener();
+            }
+            break;
+        }
         case SDK::CrWarning_ContentsTransferMode_Invalid:
         case SDK::CrWarning_ContentsTransferMode_DeviceBusy:
         case SDK::CrWarning_ContentsTransferMode_StatusError:

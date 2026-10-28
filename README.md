@@ -186,6 +186,7 @@ To build only the library: `cmake --build . --config Release --target SonyCam`.
 | `sonycam_set_save_info(dir, prefix, start_no)` | where PC copies of images are saved (`SDK::SetSaveInfo`) |
 | `sonycam_set/get_store_destination(i)` | 0 = PC, 1 = card, 2 = PC + card |
 | `sonycam_get_setting` / `sonycam_set_setting` | ISO, shutter, aperture, exposure mode, focus mode: current value + options |
+| `sonycam_set_capture_callback(cb)` | `cb()` each time the camera saves a shot to its memory (`CrNotify_Captured_Event`), even when saving to the card only |
 | `sonycam_set_download_callback(cb)` | `cb(path)` for every image saved on the PC (`OnCompleteDownload`) |
 | `sonycam_set_log_callback(cb)` | `cb(line)` for everything the camera code prints to `cli::tout` |
 

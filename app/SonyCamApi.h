@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-#define SONYCAM_API_VERSION 1
+#define SONYCAM_API_VERSION 2
 
 enum
 {
@@ -48,6 +48,7 @@ enum
 };
 
 typedef void (*sonycam_text_callback)(const char *utf8);
+typedef void (*sonycam_event_callback)(void);
 
 SONYCAM_API int sonycam_api_version(void);
 
@@ -58,6 +59,11 @@ SONYCAM_API void sonycam_set_log_callback(sonycam_text_callback cb);
 // Receive the full path of each image the camera transfers to the PC.
 // Images only reach the PC when the store destination is PC or PC+card.
 SONYCAM_API void sonycam_set_download_callback(sonycam_text_callback cb);
+
+// Called each time the camera has saved a shot to its own memory, whatever
+// the store destination (a tiny event: no image data is transferred).
+// Not reported by ILCE-9M2, ILCE-7RM4, ILME-FX6, MPC-2610, PXW-Z200, HXR-NX800.
+SONYCAM_API void sonycam_set_capture_callback(sonycam_event_callback cb);
 
 // Initialise / release the Sony SDK. Call once per process.
 SONYCAM_API int sonycam_init(void);
